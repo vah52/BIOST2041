@@ -1,0 +1,200 @@
+---
+title: "Recitation 1"
+author: "YOUR NAME HERE"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    number_sections: no
+    toc_depth: '4'
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+
+# Introduction
+
+## R Markdown Set-Up
+
+The section below that starts with "```{r}" is a code chunk (you should see it has a slightly different background shading to indicate where the code chunk begins and ends). Code chunks are where you can put R code so that you can run the code in-line and have the results display in your final document.
+
+```{r}
+# this is a code chunk
+# we can implement R code within these chunks
+2 + 2
+```
+
+
+We don't want to write R code out here--this space is just for text! You can include descriptions of the analysis you ran, add extra notes and details, and interpret the results from your R code in this section
+
+Two plus two is in fact equal to four.
+
+# This is a main header
+
+## This is a subheader
+
+### You guessed it! This is the next level down
+
+#### See the pattern?
+
+**Try knitting this document now to see how these appear in the HTML file that this R Markdown file creates. To do this, hit the "Knit" button at the top of this window. **
+
+Everything you include in this file will end up in your final document. Code you run below in the Console but don't include in your R Markdown file in a code chunk __will not__ end up in the knitted document. So be careful when coding directly in the Console!
+
+# Using R 
+
+## Working Directories
+
+To find out where R is currently sitting in your computer's file structure, try running the line of code below
+
+```{r}
+# this line of code will print out the directory (folder) where R is currently working
+# you can run this line using the green arrow at the right corner of the code chunk
+# you can also put your cursor anywhere on the line of code and hit command + return on mac or control + enter on windows to run the line
+getwd()
+
+```
+
+This should print out a long path to the folder where this R Markdown file is stored on your computer. The first few sections are specific to your computer. For example, for me, since I'm on a mac, my file path starts with "/Users/" followed by the username for my computer "haleyg/". This will be different from yours (unless you're also on a mac with the same username as me :) ). Depending on where you put your BIOST2041 folder, your path name may be longer/shorter than mine. 
+
+Usually, the default working directory for an R Markdown file is the directory (folder) in which the file is stored. I changed this in the set-up code chunk of this document, so you should see that __the working directory is the new folder you made for the class__ (and not the subfolder "Recitation", for example).
+
+## R packages
+
+R comes with some functions automatically loaded, but we often want to perform tasks beyond the basic functionalists of what is available to us in R by default. This is where R packages come in. R packages are collections of functions (and sometimes data) that we can download and use. I'm going to be making use of a few R packages in this class that were built to make things like plotting, manipulating data, and statistical analysis easier.
+
+One R package I'm going to be utilizing regularly in this class is called the `tidyverse` package (more on this later), which contains a variety of very useful functions. To use the tidyverse, you first need to install it. You can install R packages directly in R using a function `install.packages()`. For example, go ahead and type the following line of code into your __console__ (without the tick marks ``):
+
+`install.packages("tidyverse")`
+
+You can also install packages in the bottom right quadrant of R Studio in the tab labeled "Packages"--I'll show this to you live! 
+
+_I didn't include an R chunk here because it isn't good practice to install packages in code chunks (you only need to download a package once, so putting it in the .Rmd file means you will be prompting R to install the package every time you knit the document--which isn't necessary)_
+
+
+
+__You only need to install R packages once.__ One you install it, you will have the software on your computer. However, we do need to __load__ the library when we want to use it in a new R session. R does not automatically load all of the packages you have installed on your computer, so if you want to use functions from a particular R package, you need to load it. To load an R package (to get access to its contents) we use the `library()` function. For example, to load the `tidyverse` package, we will need to run the following line of code:
+
+
+```{r}
+# load the R package called "tidyverse"
+library(tidyverse)
+
+```
+
+
+Note: if you forget to include this line of code when you start a new R session (or in R Markdown files), you'll get an error when you try to use the functions from the package. I'll show this to you live when we start importing data using functions from the  `tidyverse` package.
+
+
+## Importing Data
+
+To work with data in R, we have to import it. Typically, we do this by directing R to read in a data file stored on our computer (there are also ways to download directly from a URL, but we'll stick to reading data in from saved files).
+
+We'll cover a few different ways to read data into R.
+
+### Importing using the "Files" tool in R Studio
+
+Lastly, you can use the tools built into R Studio to import a data file.
+
+In the bottom right quadrant of your R Studio window under the "Files" tab, navigate through your files to find the "ArthritisTreatment.csv" file by clicking through the folders (if you need to go back from a sub-folder to a higher-level folder, hit the two dots ".." next to the green arrow).
+
+Once you have found the file, click on it. This should give you two options:
+ 1. View File
+ 2. Import Dataset...
+ 
+Click "Import Dataset..."
+
+This will cause a window to pop up where you can choose a name for the data you'll be importing, make changes like skipping a certain number of rows, tell R how the missing values appear in this file, etc and will also show you a preview of what the data will look like when you use the code it provides you. Once you're ready to go, you can click "Import", which will run the code in the Code Preview in your Console, or you can click the clipboard icon to copy the code in the code preview and then paste it into your document. 
+
+I recommend using the second option to copy the code and paste it into your R Markdown file yourself!! If you just run the code in the Console and forget to copy it up into your R Markdown file, everything will work fine as you're working interactively in R Studio but your knitted HTML file will have lots of errors because it won't be able to find the data!!
+
+
+### Importing from the "Data" Folder
+
+You should have saved a copy of the file "ArthritisTreatment.csv" in the "Data" subfolder of your class folder.
+
+A way to check that you do in fact have this file is to run the line of code below. This code will print out all of the files in the "Data" folder.
+
+```{r}
+# check that we have a file called "ArthritisTreatment.csv"
+list.files(path = "Data")
+
+# to list the files with their full path names, we can add an extra argument
+list.files(path = "Data", full.names = TRUE)
+```
+
+To read in the csv file we are going to use the `read_csv()` function, which is part of the `tidyverse` package.
+
+```{r}
+# read the arthritis data
+read_csv(file = "Data/ArthritisTreatment.csv")
+
+```
+
+You should see that this reads in the data and prints it out below the code chunk. But wait! Where did it go? Notice that our environment is still empty (look in the top right quadrant of your R Studio window). Instead of just reading in the data and printing it, we want to save it in our R environment.
+
+
+In order to read in the data and save it, we need to assign it a name. I'm going to call the data `ra`.
+
+```{r}
+# read in the data and save it with the name `ra`
+ra = read_csv(file = "Data/ArthritisTreatment.csv")
+
+# we could also use the "assign operator" instead of the equal sign--they're equivalent
+# ra <- read_csv(file = "Data/ArthritisTreatment.csv")
+```
+
+Now you should see that there is an object in your environment called `ra`. It has 530 observations (rows) and 14 variables (columns).
+
+To take a look at the data in a new tab, click on the small white box on the right in the "Environment" panel. We can also take a look at the first few rows of the data using the following line of code:
+
+```{r}
+# print the first 6 rows of the dataset
+head(ra)
+
+```
+
+### Importing from Downloads folder with full file pathname
+
+Storing all of your data files in a dedicated data folder for this class will be the most convenient (and reproducible) way to manage data. However, you can also import data into R from other locations on your computer by typing (or copying and pasting) the entire file path the R function to read in the data.
+
+To copy the full path to the file you want to load into R, navigate to that file in your computer's file system (in Finder on mac, in File Explorer on Windows) and right click on the file. If you're on a mac, hold down the "option" key and select "Copy [filename] as Pathname". If you're on Windows, hold down the "Shift" key and select "Copy as Path". This will copy the full path to your data file, which you can then input into the "path" argument of the `read_csv()` function.
+
+```{r}
+# reading in data using the full pathname
+ra2 = read_csv("PASTE THE FILE PATH YOU COPIED HERE")
+
+```
+
+
+# Knitting the file
+
+When you're ready to turn your code into an HTML file, hit the "Knit" button at the top of this window.
+
+Note: You can knit a file as many times as you want. Each time you knit the file, the output HTML file will get updated with your changes. **Pro tip: you can knit your homework assignments as you go to make sure there aren't any unexpected errors at the last minute when you think you're done and you're about to turn in your assignment**
+
+
+# Common mistakes
+
+- Loading a library (R package) in the Console but not in a code chunk in the R Markdown file
+  - This will cause errors that read something like `Error in ____: could not find function "_____"`
+  
+- Importing data in the Console but not in a code chunk in the R Markdown file
+ - Similar to above, this will lead to errors that read something like `Error: object '___' not found`
+ 
+- Importing data with a `read_csv()` or `read_excel()` function but forgetting to assign the data a name
+  - This will cause the same type of errors as above,  `Error: object '___' not found`
+
+- Submitting the .Rmd file instead of knitting to HTML and submitting the output
+  - Your TAs don't want to try to run your code--just give them the output! :)
+  
+- R is case-sensitive! Make sure you spell object and variable names **exactly** as they appear in the data dictionary or how you spelled them when you defined them.
+  - This will also lead to errors like `Error: object '___' not found`
