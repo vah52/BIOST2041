@@ -1,0 +1,489 @@
+---
+title: "Recitation 4"
+author: "YOUR NAME HERE"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    number_sections: no
+    toc_depth: '4'
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+```{r}
+library(tidyverse)
+```
+
+# Binomial distributions
+
+According to the US Census, in 2022 about 65.6% of Americans had private health insurance (we'll assume this rate has remained relatively constant since 2022). Suppose we are randomly sampling 10 people from this population. Let the random variable $X$ be equal to the number of individuals out of 10 that have private health insurance.
+
+## 1. One random sample from binom(n = 10, p = 0.656)
+
+Below I've included code to sample from a binomial distribution with n = 10 and p = 0.656:
+
+In R, the function to randomly simulate from a binomial distribution is `rbinom()`. It takes the following arguments:
+
+-   `n` : number of samples you want to draw (number of times you want to draw from this distribution)
+-   `size` : the number of fixed trials for the binomial distribution (in class, we called this n, but here n has already been used)
+-   `prob` : the probability of a "success" in the binomial distribution
+
+```{r}
+# randomly sample from a binomial distribution with n = 10 and p = 0.656
+x1 = rbinom(n = 1, size = 10, prob = 0.656)
+
+print(x1)
+```
+
+This should return a number between 0 and 10. This represents what would happen if we sample 10 people from the population and count how many of them have private insurance.
+
+## 2. Simulating the distribution
+
+To get a sense of the possible values that $X$ can take, we will need to sample more than one time. That is, we want to sample 10 different people from the population many times and see how often the different possible outcomes occur. To do this, we can change the `n` argument in `rbinom`. Let's do this procedure 10,000 times.
+
+```{r}
+# setting the random seed guarantees that we all get the same numbers moving forward
+set.seed(123)
+# draw from a binom(n=10, p=0.656) 10,000 times
+x10000 = rbinom(n = 10000, size = 10, p = 0.656)
+
+# save the values in a data frame to make plotting easier
+binom_data = data.frame(private_insured = x10000)
+```
+
+## 3. Visualizing the Distribution
+
+Let's make a plot of the values we obtained in our 10,000 draws from a $Binom(n = 10, p = 0.656)$:
+
+```{r}
+# plot the distribution
+binom_data %>% # using data frame we just made
+  ggplot(aes(x = private_insured)) + # private_insured is our variable of interest 
+  geom_bar(fill = "palegreen1", color = "black") + # color bars in blue
+  theme_bw() + # black and white background
+  scale_x_continuous(breaks = 0:10) + 
+  labs(x = "# Privately Insured out of 10")
+
+
+```
+
+## 4. Mean and Variance
+
+```{r}
+# calculate mean of simulated distribution
+
+# calculate variance of simulated distribution
+
+```
+
+## 5. Empirical vs Theoretical Probabillities
+
+Estimate the following probabilities using the distribution we just simulated:
+
+### a. P(X = 4)
+
+**The probability that 4 of the 10 people randomly sampled have private insurance.**
+
+Here I'm calculating the probability empirically with the distribution I simulated. We drew 10,000 samples from a $Binom(n = 10, p = 0.656)$ distribution, so the empirical proportion of samples with the value 4 should be pretty close to the true underlying probability of drawing a 4 from a $Binom(n = 10, p = 0.656)$.
+
+Then, using the `pbinom()` and `dbinom()` functions, calculate the exact probabilities that we estimated above. Compare these probabilities to the probabilities we simulated.
+
+```{r}
+# P(X = 4)
+# Number that == 4 / total trials
+sum(x10000 == 4) / length(x10000)
+
+# alternative code:
+mean(x10000 == 4)
+
+# exact probability
+dbinom(4, size = 10, prob = 0.656)
+
+```
+
+A little over 6% of my 10,000 samples had a value of 4. The true underlying probability of getting a 4 from a $Binom(n = 10, p = 0.656)$ distribution is 0.644 (with rounding), which is very close to our empirical estimate!
+
+### b. P(X \<= 7)
+
+**The probability that at most 7 of the 10 people randomly sampled have private insurance.**
+
+```{r}
+# P(X <= 7)
+mean(x10000 <= 7)
+
+# exact probability
+pbinom(7, size = 10, prob = 0.656)
+
+# alternative code:
+sum(dbinom(0:7, size = 10, prob = 0.656))
+
+
+```
+
+A little over 72% of my sample had a value of 7 or lower. The exact probability of this event is 0.725, which is very close to our empirical estimate of 0.726.
+
+### c. P(X \> 6)
+
+**The probability that more than 6 of the 10 people randomly sampled have private insurance.**
+
+```{r}
+# P(X > 6)
+# empirical (from our simulated distribution)
+mean(x10000 > 6)
+# theoretical (from tru binomial distribution)
+sum(dbinom(7:10, size = 10, prob = 0.656))
+# or
+1 - pbinom(, size = 10, prob = 0.656) # 1 - prob(p <= 6)
+  # u can also do
+pbinom(, size = 10, prob = 0.656, lower.tail = F) # same thing as above
+```
+
+### c. P(X \>= 8)
+
+**The probability that at least 8 of the 10 people randomly sampled have private insurance.**
+
+```{r}
+# P(X >= 8)
+# empirical (from our simulated distribution)
+
+# theoretical (from tru binomial distribution)
+
+```
+
+## 6. Quantiles
+
+Now we'll work backwards and calculate specific quantiles of our binomial distribution.
+
+### a. Empirical quantiles
+
+Calculate the empirical 5th, 50th percentile (median), and 95th of the simulated distribution.
+
+The `quantile()` function can calculate the quantiles of an observed distribution. You have to supply the function with a vector (the observed data) and at least one probability (you can also give it a vector of probabilities) for which the function to calculate the quantiles.
+
+Recall that the 5th percentile of a variable $X$ is the value $x$ such that $P(X\leq x)=0.05$. So if we want the 5th percentile, we would supply the `quantile()` function with the value 0.05 for the `probs` argument.
+
+```{r}
+# empirical 5th, 50th, and 95th percentiles
+quantile(x10000, probs = c(0.05, 0.5, 0.95))
+```
+
+The 5th percentile (5% of the data are less than or equal to this value) is 4, the 50th percentile is 7, and the 95th percentile is 9.
+
+To visualize this,, we can make a plot showing the values we sampled (stored in `binom_data`) in order from smallest to largest. Here on the x-axis I'm plotting the rank and the rank divided by 10000 (the number of samples we drew) and on the y-axis I'm showing the value that corresponded to that rank. The 5th percentile is the value at which 5% of the data fall below, or the 0.05\*10000 = 500th observation, when we sort the observations from smallest to largest.
+
+```{r}
+# show ordered data and quantiles in plot
+binom_data %>%
+  arrange(private_insured) %>%
+  mutate(id = row_number(),
+         p = id / length(x10000)) %>%
+  ggplot(aes(x = p, y = private_insured)) + 
+  geom_point() + 
+  geom_vline(xintercept = 0.05, color = "red") + 
+  geom_vline(xintercept = 0.5, color = "blue") +
+  geom_vline(xintercept = 0.95, color = "green") + 
+  theme_bw() + 
+  labs(y = "# Out of 10 Privately Insured",
+       x = "Rank / 10000") +
+  scale_x_continuous("Rank / 10000", 
+                     sec.axis = sec_axis(~ . * 10000, name = "Rank"))
+
+
+
+```
+
+### b. Theoretical quantiles
+
+Calculate the theoretical 5th, 50th percentile (median), and 95th of a $Binom(n = 10, p = 0.656)$ distribution.
+
+We can calculate theoretical quantiles from a binomial distribution using the `qbinom()` function. The arguments are similar to `rbinom()`, `dbinom()`, and `pbinom()`, we just need to supply the size, the probability of success, and the quantiles we want (in the form of probabilities just like in the `quantile()` function above).
+
+```{r}
+# theoretical 5th, 50th, and 95th percentiles
+qbinom(p = c(0.05, 0.5, 0.95), size = 10, prob = 0.656)
+```
+
+In this case, our theoretical quantiles match our empirical quantiles.
+
+# Normal Distribution
+
+Now we are going to randomly sample from a normal distribution. We will be using the standard normal distribution ($Z \sim N(0, 1)$) a lot in this class, so we'll draw samples from that distribution now.
+
+In R, the function to randomly simulate from a binomial distribution is `rnorm()`. It takes the following arguments:
+
+-   `n` : number of samples you want to draw (number of times you want to draw from this distribution)
+-   mean : the mean ($\mu$) of the normal distribution you wish to draw from
+-   `sd` : the standard deviation ($\sigma$) of the normal distribution you wish to draw from
+
+## 1. One random sample from N(0, 1)
+
+```{r}
+# unset seed so we all get different numbers
+set.seed(NULL)
+
+# draw one sample from N(0, 1) 
+# here we could skip the specification of the mean and sd since mean = 0, sd = 1 are the default values
+# I've included them here for clarity :)
+z1 = rnorm(n = 1, mean = 0, sd = 1)
+
+print(z1)
+
+```
+
+## 2. Simulating the Distribution
+
+Now we will draw 10,000 samples from a standard normal ($Z \sim N(0, 1)$) distribution:
+
+```{r}
+# set seed for reproducibility
+set.seed(246)
+# draw 10,000 samples from N(0, 1)
+z10000 = rnorm(n = 10000, mean = 0, sd = 1)
+
+# save as data frame for plotting
+normal_data = data.frame(z = z10000)
+
+```
+
+## 3. Visualizing the Distribution
+
+**Exercise**
+
+Make a histogram of the data we just simulated:
+
+```{r}
+# histogram
+
+
+```
+
+## 4. Empirical vs Theoretical Probabillities
+
+**Exercise**
+
+Estimate the following probabilities using the distribution we just simulated and compare them to the theoretical probabilities using the `pnorm()` function.
+
+### a. P(Z \<= -1.96)
+
+**The probability Z is less than or equal to -1.96**
+
+```{r}
+# P(Z <= -1.96)
+
+# empirical
+
+# theoretical
+
+```
+
+### b. P(Z \> 1.96)
+
+**The probability Z is greater than 1.96**
+
+```{r}
+# P(Z > 1.96)
+
+# empirical
+
+# theoretical
+
+```
+
+### b. P(Z \> 1.645)
+
+**The probability Z is greater than 1.645**
+
+```{r}
+# P(Z > 1.645)
+
+# empirical
+
+# theoretical
+
+```
+
+### c. P(\|Z\| \> 2.58)
+
+**The probability the absolute value of Z is greater than 2.58**
+
+```{r}
+# P(|Z| > 2.58)
+
+# empirical
+
+# theoretical
+
+```
+
+### c. P(\|Z\| \<= 1.96)
+
+**The probability the absolute value of Z is less than or equal to 1.96**
+
+```{r}
+# P(|Z|<=1.96)
+
+# empirical
+
+# theoretical
+
+```
+
+## 5. Quantiles
+
+### a. Empirical quantiles
+
+Calculate the empirical 5th, 50th percentile (median), and 95th of the simulated distribution.
+
+```{r}
+# empirical 5th, 50th, and 95th percentiles
+
+
+
+```
+
+Here is a way to visualize this for the normal distribution:
+
+```{r}
+
+# show ordered data and quantiles in plot
+normal_data %>%
+  arrange(z) %>%
+  mutate(id = row_number(),
+         p = id / length(x10000)) %>%
+  ggplot(aes(x = p, y = z)) + 
+  geom_point() + 
+  geom_vline(xintercept = 0.05, color = "red") + 
+  geom_vline(xintercept = 0.5, color = "blue") +
+  geom_vline(xintercept = 0.95, color = "green") + 
+  theme_bw() + 
+  labs(y = "Sample from N(0,1)",
+       x = "Rank/10000") + 
+  scale_x_continuous("Rank/10000", 
+                     sec.axis = sec_axis(~ . * 10000, name = "Rank"))
+```
+
+### b. Theoretical quantiles
+
+Calculate the theoretical 5th, 50th percentile (median), and 95th of a $N(0,1)$ distribution.
+
+```{r}
+# theoretical 5th, 50th, and 95th percentiles
+
+
+```
+
+# Normal QQ-plots
+
+In this section we are going to make quantile-quantile (QQ) plots to compare our various distributions to a normal distribution.
+
+## 1. Using `normal_data`
+
+Make a quantile-quantile plot comparing the simulated data distribution in `normal_data` to a theoretical normal distribution.
+
+```{r}
+# qq plot
+normal_data %>%
+  ggplot(aes(sample = z)) + 
+  stat_qq() + 
+  stat_qq_line() +
+  theme_bw() + 
+  labs(x = "Theoretical Normal Distribution Quantiles",
+       y = "Observed Data Quantiles")
+
+```
+
+## 2. Using `binom_data`
+
+Here we're making a QQ plot using the data we simulated from the binomial distribution in the first section. Help fill in the code below:
+
+Can you tell why the plot looks like this?
+
+```{r}
+# qq plot
+"INSERT CODE HERE" %>%
+  ggplot(aes("INSERT CODE HERE")) + 
+  "INSERT CODE HERE" +
+  theme_bw() + 
+  labs(x = "Theoretical Normal Distribution Quantiles",
+       y = "Observed Data Quantiles")
+
+
+```
+
+## 3. Using the Age variable from the Rheumatoid Arthritis data set
+
+Here we'll make the QQ plot of the Age variable in the ra data set that I showed in the lecture slides:
+
+```{r}
+# read in data for the 1000000th time :)
+ra = read_csv("Data/ArthritisTreatment.csv")
+
+ra %>%
+  ggplot(aes(x = Age)) + 
+  geom_histogram(fill = "steelblue1", color = "black", binwidth = 2) + 
+  theme_bw() 
+
+# qq plot of Age
+ra %>%
+  ggplot(aes(sample = Age)) + 
+  stat_qq() + 
+  stat_qq_line() + 
+  theme_bw() + 
+  labs(x = "Theoretical Normal Distribution Quantiles",
+       y = "Observed Data Quantiles (Age)")
+```
+
+## Extra code to further demonstrate QQ plot concept
+
+```{r}
+
+qq_explained = data.frame( rank = 1:nrow(ra),
+                           Age = sort(ra$Age), # age from lowest to highest
+           p = ppoints(length(ra$Age))) %>%  # which quantile
+  mutate(normal_q = qnorm(p)) # normal quantile
+
+
+# full data set
+qq_explained
+
+# theoretical mean and sd for N(m,s)
+m = mean(ra$Age)
+s = (quantile(ra$Age, 0.75)-quantile(ra$Age,0.25))/(qnorm(0.75)-qnorm(0.25))
+
+ra %>%
+  ggplot(aes(x = Age)) + 
+  geom_histogram(fill = "steelblue1", color = "black", binwidth = 2,
+                 aes(y = after_stat(density))) + 
+  theme_bw() +
+  stat_function(fun = dnorm, args = list(mean = m, sd = s), color = "red", 
+                linewidth = 2) 
+
+
+
+```
+
+```{r}
+
+# theoretical mean and sd for N(m2, s2)
+m2 = mean(binom_data$private_insured)
+s2 = (quantile(binom_data$private_insured, 0.75) - quantile(binom_data$private_insured, 0.25))/(qnorm(0.75) - qnorm(0.25))
+
+binom_data %>%
+  ggplot(aes(x = private_insured)) + 
+  geom_histogram(fill = "palegreen1", color = "black", binwidth = 2,
+                 aes(y = after_stat(density))) + 
+  theme_bw() +
+  stat_function(fun = dnorm, args = list(mean = m2, sd = s2), color = "red", 
+                linewidth = 2) +
+  labs(x = "Number out of 10 with Private Insurance")
+
+```

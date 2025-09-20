@@ -1,0 +1,556 @@
+---
+title: "Recitation 3"
+author: "YOUR NAME HERE"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    number_sections: no
+    toc_depth: '4'
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+Important steps:
+
+-   Open your class R project!
+-   We are going to be using the same data set as last time! If you didn't already download it from Canvas, do so now!
+
+# Introduction
+
+```{r}
+library(tidyverse) # load the tidyverse
+library(readxl) # load the readxl package (you may need to install this first)
+```
+
+**The warning you get when you load the tidyverse is not an error!! This is just letting you know the versions of the various packages that make up the tidyverse and warning you that there may be some naming conflicts between functions from the tidyverse and functions you previously had loaded. You still have access to these old functions, you will just need to add some extra code to use them, since they are currently being masked by the tidyverse versions (R will assume you want to use the tidyverse versions unless you otherwise specify). To specify which version of a function you want to use, you can always use the syntax:**
+
+`package_name::function_name`
+
+For example, to use the `filter()` function from the `stats` package you would write:
+
+`stats::filter`
+
+**Without specifying this, R will have to pick a default version of the filter function, which in this case comes from the dplyr package (part of the tidyverse).**
+
+## Importing Data
+
+```{r}
+# read in data from excel file using read_excel function from readxl package
+dds = read_excel("Data/dds.xlsx")
+
+```
+
+[ Note: in this data set there is a variable that is labeled "gender" that can take on one of two values: "Male" or "Female". I'm not sure if they asked about sex or gender when they obtained these data, so I'm going to use the language present in the data, but want to highlight that this may be incorrect/imprecise terminology. Let's make an effort to be more careful about things like this when we collect our own data! ]{style="color: purple;"}
+
+# Tables of categorical variables
+
+```{r}
+# table of age cohort
+xtabs(~ age.cohort, data = dds)
+
+# table of age cohort and gender variable 
+xtabs(~ age.cohort + gender, data = dds) %>% addmargins()
+
+# table of proportions (divided by total)(joint distribution)
+xtabs(~ age.cohort + gender, data = dds) %>% prop.table()
+
+# table of proportions (divided by row sums)
+xtabs(~ age.cohort + gender, data = dds) %>% prop.table(margin = 1)
+
+# table of proportions (divided by column sums)
+xtabs(~ age.cohort + gender, data = dds) %>% prop.table(margin = 2)
+
+```
+
+## Exercise: Table of Ethnicity x Age
+
+**Make a table to compare the age (group) distribution by ethnicity.**
+
+```{r}
+# ethnicity by age table
+
+```
+
+## Tables Using dplyr summarise()
+
+We can also do this with the summarise() function that we used last time
+
+```{r}
+# table of age cohort
+dds %>% 
+  group_by(age.cohort) %>%
+  summarise(count = n())
+
+# table of age cohort by gender variable
+dds %>% 
+  group_by(age.cohort, gender) %>%
+  summarise(count = n())
+
+# table of proportions (divided by total)
+dds %>% 
+  group_by(age.cohort, gender) %>%
+  summarise(count = n(), .groups = "drop") %>% 
+  mutate(prop = count / sum(count))
+
+# table of proportions (by age)
+dds %>% 
+  group_by(age.cohort, gender) %>%
+  summarise(count = n()) %>% 
+  mutate(prop = count/sum(count))
+
+# table of proportions (by gender)
+dds %>% 
+  group_by(gender, age.cohort) %>%
+  summarise(count = n()) %>% 
+  mutate(prop = count / sum(count)) 
+
+```
+
+# ggplot syntax
+
+The `ggplot2` package within the `tidyverse` suite of packages utilizes similar syntax to create multiple types of graphs.
+
+All `ggplot2` plots will begin with a call to the `ggplot()` functions, to which you will supply the data you will be using to make the plot and specify the variables (columns) you would like to use in the plot. We can then add extra features on top of this base plot using other `ggplot2` functions, strung together with the `+` symbol.
+
+I tend to use the following syntax:
+
+`{data_name} %>%`
+
+`ggplot(aes(x = {x_axis_variable_name}, y = {y_axis_varible_name})) +`
+
+`geom_{PLOT_TYPE}()`
+
+The code in the brackets `{}` are the things you should change based on your data and the type of plot you want to make.
+
+The important thing to note about this code is that any variable you want to use from the data frame that you've supplied (in this example, `data_name`) must be wrapped within the `aes()` function. This is how R understands that you are trying to pull a column from the data frame and use it in the plot.
+
+There are lots of different plots that `ggplot2` can make, each with a different function. Some common ones that we will use are:
+
+-   `geom_histogram()`: makes a histogram
+-   `geom_boxplot()`: makes a boxplot
+-   `geom_bar()`: makes a bar plot
+-   `geom_point()`: makes a scatterplot
+-   `geom_qq()`: makes a quantile-quantile (QQ) plot (more on this in Module 2)
+
+# Plotting Data
+
+## Univariate
+
+### Histograms
+
+To make a histogram in ggplot, we call the `geom_histogram()` function. We also need to tell R which variable we want to use from the data set for the plot. Here we will make a histogram of the `age` variable.
+
+*Notice that anytime I want to use a variable from the data set in my plot, I need to "wrap" it in the `aes()` function. This tells R that the thing inside is a name of a variable in the data frame, rather than an object that exists in our environment outside of the data frame (there isn't an object in our environment called `age`, but there is a variable in our `dds` data frame with the column name `age`).*
+
+```{r}
+
+# make a histogram of age
+dds %>% # start with the dds data frame object
+  ggplot(aes(x = age)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_histogram() # make a histogram
+  theme_classic()
+```
+
+The output above may have also showed a message saying "`stat_bin()` using `bins = 30`. Pick better value with `binwidth`."
+
+This is R telling us that is chose to split the data into 30 equal-sized intervals to make the histogram. We may want to make smaller or larger bins, depending on the level of detail we want to present in our histogram. To change this, we can add the argument `bins` to the inside of `geom_histogram()` to pick a larger/smaller number of bins (intervals) to split the data into. Or we can pick the size of the intervals (bins) with the `binwidth` argument. I've included a few examples below: one splitting the data into 50 equal-sized bins instead of the default 30 and a second splitting into bins of with 1 (1 year intervals).
+
+```{r}
+## 50 bins
+# make a histogram of age
+dds %>% # start with the dds data frame object
+  ggplot(aes(x = age)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_histogram(bins = 50) # make a histogram with 50 bins
+
+## 1-year bin size
+# make a histogram of age
+dds %>% # start with the dds data frame object
+  ggplot(aes(x = age)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_histogram(binwidth  = 1) # make a histogram with 1-year bin width (size)
+
+```
+
+#### Exercise: changing the number of bins
+
+**Change the number of bins to 10 and to 100 to see how this changes the histogram.**
+
+```{r}
+# change bins to 10
+
+
+# change bins to 100
+
+```
+
+#### Histograms with Base R
+
+We can also use base R sytax to make a (slightly uglier) histogram by passing the column vector `dds$age` into the `hist()` function.
+
+```{r}
+# make a histogram using the column age from the dds data frame as a vector
+hist(dds$age)
+
+```
+
+### Boxplots
+
+To make a boxplot using ggplot, we will use the function `geom_boxplot()`. We have two options: vertical and horizontal boxplots. We can choose which type we make by either passing the variable name (here we'll plot `age` again) into the `x` argument or the `y` argument. Notice how the only difference between the two lines of code below are using `x` or `y` in the `aes()` function. See how that changes the plot?
+
+Horizontal boxplot:
+
+```{r}
+
+# make a boxplot of age
+# horizontal
+dds %>% # start with the dds data frame object
+  ggplot(aes(x = age)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_boxplot() # make a boxplot
+
+```
+
+Vertical boxplot:
+
+```{r}
+# vertical
+dds %>% # start with the dds data frame object
+  ggplot(aes(y = age)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_boxplot() # make a boxplot
+```
+
+#### Boxplots with Base R
+
+Again, we can also use base R to make a similar plot by passing through the column vector `dds$age` into the `boxplot()` function
+
+```{r}
+# make a boxplot using the column age from the dds data frame as a vector
+boxplot(dds$age)
+
+```
+
+### Bar Plots
+
+Making a bar plot is very similar to making a histogram, only this time we will pass in a categorical variable instead of a numerical variable. Below I am showing a bar plot of the variable `age.cohort`, which breaks age into discrete groups.
+
+```{r}
+# make a bar plot of age.cohort
+dds %>% # start with the dds data frame object
+  ggplot(aes(x = age.cohort)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_bar() # make a bar plot
+```
+
+Notice that this bar plot is showing up with an order that doesn't make very much sense (it's using the first character(s) of each value to determine the order to plot). If we want to change this, one of the easiest ways is to make a factor with the levels in the order that we want them to appear in the plot:
+
+### Exercise: fix the error (factors)
+
+**There is an error in the code. Try to identify it and fix it!**
+
+```{r}
+# make a new factor variable for age group with more reasonable order for the levels
+dds <- dds %>%
+  mutate(age.cohort.f = factor(age.cohort, 
+                               levels = c("0-5", "6-12", "13-17", "18-21", "22-50", "51"),
+                               labels = c("0-5 yrs", "6-12 yrs", "13-17 yrs", "18-21 yrs", "22-50 yrs", "51+ yrs")))
+
+```
+
+Now that the error is fixed, we can make a plot:
+
+```{r}
+# make a bar plot of age.cohort with factor
+dds %>% # start with the dds data frame object
+  ggplot(aes(x = age.cohort.f)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_bar() # make a bar plot
+```
+
+#### Bar Plots with Base R
+
+We can also make a bar plot in base R, but it's a little bit different than the previous base R functions. This function is expecting a vector of counts that indicate the heights of the bars. If the elements of the vector are named, it will print the names of the entries as the bar labels.
+
+```{r}
+# table of counts
+# this will print the label and the count for each group
+table(dds$age.cohort.f)
+
+# plot counts with labels
+barplot(table(dds$age.cohort.f))
+
+# notice that if the vector we give barplot() is unnamed, the bar plot will not have labels
+barplot(c(13, 7, 34, 9, 29,7))
+
+```
+
+## Bivariate
+
+### Side-by-side histograms
+
+To compare histograms across different groups, one of the easiest options is to use facets. This is just a simple way to separate the data by a particular variable and make the same plot for each level of that variable.
+
+For example, suppose we want to see if the age distribution of male and female subjects in our data, we can use the function `facet_wrap()` to update our ggplot histogram so that separate histograms are made for each level of the `gender` variable.
+
+```{r}
+# make a histogram of age by gender
+dds %>% # start with the dds data frame object
+  ggplot(aes(x = age)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_histogram(binwidth = 5) +  # make a histogram
+ facet_wrap( . ~ gender) # this tells R to make the above plots for each level of the variable called "gender" in the data
+
+```
+
+### Side-by-side boxplots
+
+We can do something similar for boxplots:
+
+```{r}
+
+# make a boxplot of age by gender
+dds %>% # start with the dds data frame object
+  ggplot(aes(y = age)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_boxplot() +  # make a boxplot
+ facet_wrap( . ~ gender) # this tells R to make the above plots for each level of the variable called "gender" in the data
+
+```
+
+Alternatively, we don't need to use facets here. Instead, we can just plot the boxplots next to each other by specifying a variable for the x-axis:
+
+```{r}
+
+# alternative code:
+dds %>% # start with the dds data frame object
+  ggplot(aes(y = age, x = gender)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_boxplot()  # make a boxplot
+
+
+
+```
+
+### Side-by-side bar plots
+
+We can also use facets to make side-by-side bar plots for categorical variables:
+
+```{r}
+# make a bar plot of age.cohort with factor variable by gender variable
+dds %>% # start with the dds data frame object
+  ggplot(aes(x = age.cohort.f)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_bar() +# make a bar plot
+  facet_wrap(. ~ gender) # split by gender variable
+
+
+```
+
+If we are worried about differences in sample size making it hard to see differences, one simple option is to change the scale of the y-axis:
+
+```{r}
+# make a bar plot of age.cohort with factor variable by gender variable
+dds %>% # start with the dds data frame object
+  ggplot(aes(x = age.cohort.f)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_bar() +# make a bar plot
+  facet_wrap(. ~ gender, scales = "free_y") # split by gender variable, don't force same y-axis
+
+
+```
+
+Another option that requires a bit more work is to calculate proportions by hand and plot those:
+
+```{r}
+# make a bar plot of age.cohort with factor variable by gender variable with proportions instead of counts
+dds %>%
+  group_by(gender, age.cohort.f) %>%
+  summarise(count=n()) %>%
+  mutate(prop = count/sum(count)) %>% # here the sum is taken within groups by the gender variable only
+  ggplot(aes(x = age.cohort.f, y = prop)) + 
+  geom_bar(stat = "identity") + # R isn't expecting a y variable (it's expecting to count the values itself), so to override this, we have to tell it to plot the y value we gave it ("identity")
+ facet_wrap(.~ gender)
+  
+```
+
+### Scatterplots
+
+To make a scatterplot with ggplot, we have to specify which variable will be shown on the x-axis and which will be shown on the y-axis:
+
+```{r}
+# make a scatterplot of expenditures by age
+dds %>% # start with the dds data frame object
+  ggplot(aes(x = age, y = expenditures)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_point() # make a scatterplot
+
+
+```
+
+#### Scatterplots with Base R
+
+Again, we can provide column vectors to make scatterplots with base R as well:
+
+```{r}
+# scatterplot with x-axis = age and y-axis = expenditures
+plot(x = dds$age, y = dds$expenditures)
+
+
+```
+
+As a side note, to take the correlation, I can use the following code:
+
+```{r}
+# take the (Pearson) correlation between age and expenditures
+cor(dds$age, dds$expenditures, use = "pairwise.complete")
+
+# take the (Spearman) correlation between age and expenditures
+cor(dds$age, dds$expenditures, use = "pairwise.complete", method = "spearman")
+```
+
+Notice that one of the age values is 0 for this data set:
+
+```{r}
+# find the minimum age
+min(dds$age)
+```
+
+What if this is a mistake (it might not be if this is a child \<1 year old, but we'll assume that everyone in the data set has to be at least 1)? I might want to remove this point from my analysis. To do this, I need to figure out which row is the person (or people) with age = 0. I can use the following code to do this:
+
+```{r}
+# find index of 0 age
+index_0 = which(dds$age==0)
+print(index_0)
+
+```
+
+If I want to remove this observation from my data and re-calculate the correlation, I can use the following code:
+
+```{r}
+# correlation removing 85th row (Pearson)
+cor(dds$age[-85], dds$expenditures[-85], use = "pairwise.complete")
+
+# Spearman correlation removing 85th row (Pearson)
+cor(dds$age[-85], dds$expenditures[-85], use = "pairwise.complete", method = "spearman")
+
+```
+
+Great! That didn't have too much of an impact on my results!
+
+# Exercises
+
+**1. Fill in the code below to make a histogram of expenditures**
+
+```{r}
+# histogram of medical expenditures
+dds %>% 
+  ggplot(aes("INSERT CODE HERE")) + 
+  geom_histogram() 
+
+```
+
+**2. Update your code to create separate histograms of expenditures by age group**
+
+(copy and paste the code you finished above and update it to plot one histogram per age cohort)
+
+```{r}
+# histogram of medical expenditures by age group
+
+
+
+```
+
+**3. Below, I'm trying to make a bar plot of ethnicity, but there is an error in the code. Find the error and fix it!**
+
+```{r}
+# bar plot of ethnicity
+
+ggplot(aes(x = ethnicity)) + 
+  geom_bar()
+
+```
+
+**4. Below I'm trying to make side-by-side boxplots of expenditures by ethnicity, but there is an error in the code. Find the error and fix it!**
+
+```{r}
+# side-by-side boxplots of expenditures by ethnicity (with an error until you fix it)
+dds %>%
+  ggplot(x = ethnicity, y = expenditures) + 
+  geom_boxplot()
+
+```
+
+# Other ggplot aesthetic options
+
+## Labels and title
+
+We often want to update our plot labels to be more readable (instead of just showing column names). To do this, we can use the `labs()` function from ggplot. In this function, we can specify labels for axes (x and y), titles and subtitles, and more. For example:
+
+```{r}
+# make a scatterplot of expenditures by age
+dds %>% # start with the dds data frame object
+  ggplot(aes(x = age, y = expenditures)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_point() +# make a scatterplot
+  labs(x = "Age (years)", y = "Expenditures ($)", title = "Expenditures by Age")
+
+```
+
+## Background color
+
+```{r}
+# make a scatterplot of expenditures by age
+dds %>% # start with the dds data frame object
+  ggplot(aes(x = age, y = expenditures)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_point() +# make a scatterplot
+  labs(x = "Age (years)", y = "Expenditures ($)", title = "Expenditures by Age") + 
+  theme_bw() # add black and white theme instead of grey background
+
+```
+
+## Colors in plots
+
+We may also want to utilize color in our plots. Sometimes we do this just for aesthetic reasons, and other times we may want color to be a way that information is displayed in the plot (warning: be careful about using color as the only way information is presented, since people who cannot distinguish between color may not be able to get all the information from the plot).
+
+In the example below, I've shown a previous scatterplot example but I've changed all of the points to show up in the color "cornflowerblue". To see a (non-comprehensive) list of colors you can use in plots, check out this link: <https://sape.inf.usi.ch/quick-reference/ggplot2/colour>
+
+```{r}
+# make a scatterplot of expenditures by age
+dds %>% # start with the dds data frame object
+  ggplot(aes(x = age, y = expenditures)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_point(color = "cornflowerblue") +# make a scatterplot
+  labs(x = "Age (years)", y = "Expenditures ($)", title = "Expenditures by Age") + 
+  theme_bw() # add black and white theme instead of grey background
+```
+
+The color in the example above didn't actually store any information from the data. If we want to use color as a means to display information, we can do that as well. For example, here I'm making the same scatterplot but this time I am coloring the points based on the gender variable:
+
+```{r}
+# make a scatterplot of expenditures by age
+dds %>% # start with the dds data frame object
+  ggplot(aes(x = age, y = expenditures)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_point(aes(color = gender)) +# make a scatterplot
+  labs(x = "Age (years)", y = "Expenditures ($)", title = "Expenditures by Age") + 
+  theme_bw() # add black and white theme instead of grey background
+
+
+```
+
+Notice that when I want to use a column from my data frame to assign color to the different points, this needs to be wrapped in the `aes()` function (again, since there isn't an object in our Environment called `gender` that stores the values for each person, it is just a column in the `dds` data frame).
+
+I can aso use color in bar plots (and histograms). I can use color both as a filler color (to fill in the bars) using the `fill` argument, or as an outline for the bars (using the `color` argument). Notice the difference in the code and output below:
+
+```{r}
+
+dds %>% # start with the dds data frame object
+  ggplot(aes(x = age.cohort.f, fill = gender)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_bar() +# make a bar plot
+  facet_wrap(. ~ gender) +  # split by gender variable
+  theme_bw() + 
+  labs(x = "Age Group")
+
+dds %>% # start with the dds data frame object
+  ggplot(aes(x = age.cohort.f, color = gender)) + # call ggplot function and tell R we want to use the age variable from the data frame
+  geom_bar() +# make a bar plot
+  facet_wrap(. ~ gender) +  # split by gender variable
+  theme_bw() + 
+  labs(x = "Age Group")
+
+```

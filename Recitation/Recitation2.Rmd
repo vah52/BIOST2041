@@ -1,0 +1,405 @@
+---
+title: "Recitation 2"
+author: "Vanessa Hong"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    number_sections: no
+    toc_depth: '4'
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+Important steps:
+
+-   Open your class R project!
+-   We are going to be using the same data set as last time! If you didn't already download it from Canvas, do so now!
+
+# Introduction
+
+```{r}
+# load the R package called "tidyverse"
+library(tidyverse)
+
+```
+
+# Types of data
+
+## Numeric
+
+```{r}
+# the number 5
+x_number = 5
+
+# print
+print(x_number)
+```
+
+## Characters
+
+```{r}
+# character 5
+x_character = "5"
+
+# print
+print(x_character)
+```
+
+## Vectors
+
+```{r}
+# a vector of length 5
+x_vector = c(1, 2, 3, 4, 5)
+
+# print
+print(x_vector)
+```
+
+### Vector indices
+
+Vectors have indices starting at 1. If I just want to look at the 2nd, 3rd, and 5th entry of my vector, I can run the following line of code:
+
+```{r}
+# look at the second, third, and 5th entry of x_vector
+x_vector[c(2, 3, 5)]
+```
+
+If I want to look at the first through third elements, I can use either of these two lines of code:
+
+```{r}
+# look at the first - third elements of x_vector
+x_vector[c(1, 2, 3)]
+
+# alternative code
+x_vector[1:3]
+
+
+```
+
+## Logical
+
+```{r}
+# logical value
+x_logical = (length(x_vector) == 4)
+
+# print
+print(x_logical)
+
+```
+
+## Missing (NA)
+
+```{r}
+# missing
+x_missing = NA
+
+# note the difference here:
+x_not_missing = "NA"
+
+# check the difference
+is.na(x_missing)
+is.na(x_not_missing)
+```
+
+## Factors
+
+```{r}
+# making x_vector values into factor values
+# Likert scale
+x_likert = factor(x_vector, 
+                  levels = c(1, 2, 3, 4, 5),
+                  labels = c("Strongly Agree", "Agree", "Neutral", "Disagree", "Strongly Disagree"))
+
+# print
+print(x_likert)
+```
+
+# Rheumatoid Arthritis Data
+
+## Importing data
+
+Here I am importing the Rheumatoid Arthritis data set that we worked with last time from the Data subfolder.
+
+*The code below will produce an error--can you see how to fix the line of code so it properly imports the data?*
+
+```{r}
+# read the arthritis data
+ra = read_csv(file = "Data/ArthritisTreatment.csv")
+
+```
+
+## Data frame basics
+
+```{r}
+# number of rows
+nrow(ra)
+
+# number of columns
+ncol(ra)
+
+# column names
+colnames(ra)
+
+```
+
+## Types of Variables
+
+The `str()` function shows you the structure of an R object. IN this case, since we are passing in a data frame, it will show us the column names, column types, and first 10 values of each column.
+
+```{r}
+# show data set structure
+str(ra)
+
+```
+
+## Selecting Columns
+
+Sometimes we only want to look at a few columns in a data frame, rather than all columns. To do this we can use the `select()` function from the tidyverse package. Here I will select just the variables `ID` (subject ID), `Age` (age in years), and `AgeGp` (age group).
+
+```{r}
+# select ID, Age, and AgeGp
+ra %>% 
+  select(ID,Age, AgeGp)
+
+```
+
+### Other ways to extract columns
+
+Another way you can extract columns from a data frame in R is to use the `$` operator. This will pull out individual columns from a data frame and return them as vectors. The syntax is:
+
+`dataframe_name$column_name`
+
+For example, to extract the `Age` column I can run the following line of code:
+
+```{r}
+# extract Age column
+ra$Age
+
+```
+
+If I know that Age is the second column in the data set, I can also use square bracket (`[]`) notation. The syntax for this is
+
+`dataframe_name[rows_selected, columns_selected]`
+
+If you leave one of these blank, the default is to return all. For example, to extract the entire `Age` column from the `ra` data frame I can run the following line of code. Notice that unlike the `$` operator, this maintains the data frame structure (rather than converting the column into a vector).
+
+```{r}
+# extract Age column
+ra[, 2]
+```
+
+To only look at the first 10 rows of this column I could use this line of code:
+
+```{r}
+# extract Age column
+# only show first 10 rows
+ra[1:10, 2]
+```
+
+## Making New Variables
+
+Sometimes we want to make new variables in R to store new information or to store information in a different way. For example, maybe I want to add a new column that displays each individual's age in months instead of years. I already have a column showing age in years (`Age` column), so to make my new column for age in months, I just need to multiply my `Age` column by 12.
+
+To create a new variable, I'm going to use the `mutate()` function. This function has the ability to make a new column (if you provide it with a column name for your new column that doesn't already exist in the data frame) or update/replace an old column (if you provide it with a name that does already exist in the data). To make my age in months column, I'm going to call it `Age_months` and use the following code:
+
+```{r}
+# make a new variable for age in months
+ra %>%
+  mutate(Age_months = Age * 12)
+
+```
+
+Another function I might want to use is the `case_when()` function, which creates a new variable with values depending on if certain conditions are true. The following code creates a new variable called `CDAI_high` that takes the value `"High"` when an individual has a `CDAI` value greater than or equal to (`">="`) 22, and takes the value `"Low"` otherwise (when `CDAI` is less than, `<` 22):
+
+```{r}
+# make a new variable to indicate if CDAI is high (>= 22 vs < 22)
+ra %>%
+  mutate(CDAI_high = case_when(CDAI >= 22 ~ "High",
+                               CDAI < 22 ~ "Low"))
+
+```
+
+### Saving Data New Variables
+
+Go over and take a look at our `ra` data frame stored in our environment. Notice that the new variables don't appear! Where did they go?
+
+When we run functions like `mutate()` or `select()`, they don't make permanent changes to our data frame. They simply execute a particular function and return (and often print) the output. If we want to make these changes permanent, we have to **save the output** with a name. If we don't want to overwrite our previous data set, we can give the output a new name. Below, I've called my output with the `Age_months` and `CDAI_high` variables added `ra_new`.
+
+```{r}
+# save the new data frame with the extra variables with a new name
+ra_new = ra %>%
+  mutate(CDAI_high = case_when(CDAI >= 22 ~ "High",
+                               CDAI < 22 ~ "Low"),
+         Age_months = Age * 12)
+```
+
+I can also update the original `ra` data set by using the same name:
+
+```{r}
+# update the data frame with the extra variables
+ra = ra %>%
+  mutate(CDAI_high = case_when(CDAI >= 22 ~ "High",
+                               CDAI < 22 ~ "Low"),
+         Age_months = Age * 12)
+```
+
+**Warning: only update data frames if you're sure you want to make the change permanent!** If you have removed columns or rows or updated some entries in the data, saving under the same name will replace the data frame and you won't have access to the original data anymore. If you ever accidentally overwrite a data frame that you didn't mean to, you can start from the beginning and re-run your code to retrieve the original data set, but this is extra work that you probably don't want to go through every time. **Rule of thumb: if you're making major changes to a data frame that delete or change the original entries (not just add extra columns), it's safer to save it with a new name**
+
+### Making New Factor Variables
+
+We can create factor variables in data frames as well. Below I've updated the `ra` data frame to include a factor variable for age group (which I called `AgeGp_f`) that uses the values from the `AgeGp` column (which are 1s and 2s) and assigns labels that are easier to understand.
+
+```{r}
+# make a new factor variable for Age group
+ra = ra %>%
+  mutate(AgeGp_f = factor(AgeGp, levels = c(1, 2), 
+                          labels = c("40-70yrs", "75+ yrs")))
+
+# check that it worked
+ra %>%
+  select(Age, AgeGp, AgeGp_f) 
+
+```
+
+## Data Filtering
+
+Sometimes we only want to use a subset of our data for a particular analysis. If you know you're going to be using a particular subgroup of the data for multiple tests/models/etc, it may be a good idea to save a new smaller data set containing only those subjects. To make these subsets, we can use the `filter()` function from the tidyverse package.
+
+Below, I've created a new data frame called `ra.cdai.high` that only contains values from individuals who had a high CDAI value (at least 22):
+
+```{r}
+# make a new data set containing only individuals with high CDAI value
+ra.cdai.high = ra %>%
+  filter(CDAI_high == "High")
+
+
+```
+
+# Data Summarizing
+
+```{r}
+# calculate the mean, median, and standard deviation of age in the data set
+ra %>%
+  summarise(mean_age = mean(Age),
+            median_age = median(Age),
+            sd_age = sd(Age))
+
+```
+
+## Dropping Missing Data
+
+```{r}
+# calculate the mean and median CDAI value in the data set
+ra %>%
+  summarise(mean_cdai = mean(CDAI),
+            median_cdai = median(CDAI),
+            sd_cdai = sd(CDAI))
+
+# remove NA values first
+ra %>% 
+  drop_na(CDAI) %>%
+    summarise(mean_cdai = mean(CDAI),
+            median_cdai = median(CDAI),
+            sd_cdai = sd(CDAI))
+
+```
+
+## Summarizing by Group
+
+Sometimes we might want to create these summaries separately for different groups to compare. To do this, we can use the `group_by()` function to choose a variable that we will group our data by for the subsequent calculations.
+
+```{r}
+# calculate mean, median, sd of CDAI for each age group
+ra %>% 
+  drop_na(CDAI) %>%
+  group_by(AgeGp_f) %>%
+    summarise(mean_cdai = mean(CDAI),
+            median_cdai = median(CDAI),
+            sd_cdai = sd(CDAI))
+
+
+```
+
+### Including counts
+
+One thing you might want to know when calculating these group-specific summary statistics is the number of people in each group used to calculate the statistics. You can do this using the `n()` function from the tidyverse package:
+
+```{r}
+# calculate mean, median, sd of CDAI for each age group
+ra %>% 
+  drop_na(CDAI) %>%
+  group_by(AgeGp_f) %>%
+    summarise(mean_cdai = mean(CDAI),
+            median_cdai = median(CDAI),
+            sd_cdai = sd(CDAI),
+            sample_size = n())
+
+```
+
+# Exercises
+
+## New factor variable
+
+**Make a new factor variable for whether CDAI was measured or not (CDAI_YN; 1 means missing, 2 means CDAI was measured)**
+
+```{r}
+# factor variable for CDAI_YN
+# 1 = missing (not measured); 2 = measured
+
+```
+
+## Summarize by group
+
+**Calculate the mean, median, and standard deviation of time since diagnosis (Yrs_From_Dx) for people with CDAI measured and people without CDAI measured**
+
+```{r}
+# calculate mean, median, sd of Yrs_From_Diagnosis for each group (CDAI measured vs not)
+# Hint: there may be some missing data you have to handle first!
+
+```
+
+## Fix the error
+
+**Below I've included a line of code that is attempting to extract the `Sex` column from the `ra` data frame and print the first 8 entries, but it has an error. Find the error and fix it.**
+
+```{r}
+# extract sex variable from ra (this should give you an error)
+ra$sex[1:8]
+
+```
+
+## Data Filtering
+
+**Save a new data set of only female participants (Sex: 0 = Female, 1 = Male). Call the data sex ra_female. How many rows are there in this new data set?**
+
+```{r}
+# save data set with only female participants
+
+# number of rows
+
+```
+
+## Fix the error
+
+**Below I've included a line of code that is attempting to take the mean CDAI value by age group just among the female participants of this study (using ra_female data frame you just created) but it has an error. Find the error and fix it.**
+
+```{r}
+# calculate the mean CDAI by age group among female participants (this should give you an error)
+
+group_by(AgeGp_f) %>%
+  summarise(mean_cdai = mean(CDAI))
+
+```
+
+## Knit
+
+**Try knitting your document. Are there any errors in the HTML output that you weren't expecting?**

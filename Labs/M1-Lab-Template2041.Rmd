@@ -1,0 +1,340 @@
+---
+title: "M1 Lab"
+author: "Vanessa Hong"
+date: "due date"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    number_sections: false
+    toc_depth: '3'
+    code_folding: show
+---
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+require(knitr)
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+
+```
+
+# Load Libraries and Import Data Set
+
+Load libraries:
+
+```{r}
+library(tidyverse) # package for plotting/data management
+```
+
+Import the data:
+
+```{r}
+
+# read in data
+ra <- read_csv("C:/Users/vanes/Documents/SCHOOL/comp bio/BIOST2041/Data/ArthritisTreatment.csv")
+
+# Take a look at the data (just top few rows)
+head(ra)
+
+```
+
+# Part 1: Study Design and Data
+
+## a) Study design
+
+**Do these data come from an experiment or an observational study?**
+
+[Answer here (1a):]{.underline} This was an observational study.
+
+## b) Sampling
+
+**How were the data sampled? That is, who was included in this study?**
+
+[Answer here (1b):]{.underline} The data was conveniently sampled from a hospital and included rheumatoid arthritis patients between the ages of 40-70, and 75+.
+
+## c) Consequences of study design
+
+**Considering your answers to parts 1a and 1b, how might the study design impact our ability to generalize the results from this sample to other Rheumatoid Arthritis patients?**
+
+[Answer here (1c):]{.underline} These were all patients with RA from two specific age groups, so it may not apply to patients younger than 40 (children, for example).
+
+## d) Making factor variables
+
+**Three variables of interest for this lab are Sex, Biologics, and DAS28_YN (an indicator of if disease activity score was measured). These variables are coded as numbers (with 1s and 2s or 0s and 1s), but they represent categorical variables. For readability, create three new factor variables, Sex_f, Biologics_f, and DAS28_YN_f, with appropriate labels for each of these variables. We will use for the remainder of the assignment.**
+
+*I have also added code to drop missing values from a few key variables to simplify the analysis later*
+
+```{r}
+# create new variables with labels
+ra <- ra %>% 
+  mutate(DAS28_YN_f = factor(DAS28_YN, levels = c(1, 2), labels = c("no", "yes")),
+          Sex_f = factor(Sex, levels = c(0, 1), labels = c("female", "male")),
+          Biologics_f = factor(Biologics, levels = c(0, 1), labels = c("no", "yes"))) %>%
+  drop_na(DAS28_YN_f, Sex_f, Age, Yrs_From_Dx, Biologics_f) # drop missing values for later
+```
+
+# Part 2: Univariate Descriptions
+
+**Create an appropriate visualization and numerical summary for each of the variables listed below. Using the graphical and numerical summaries you create, describe the variable.**
+
+## a) Sex
+
+```{r}
+
+# table of counts
+xtabs( ~ Sex_f, data = ra) %>% addmargins()
+# table of proportions
+xtabs( ~ Sex_f, data = ra) %>% prop.table()
+
+
+# plot (histogram)
+ra %>%
+  ggplot(aes(x = Sex_f)) + # choose variable to plot
+  geom_bar() + 
+  theme_bw() + # background color
+  labs(x = "Sex")
+
+```
+
+[Description of variable distribution here:]{.underline} There is a much greater quantity of female participants (81%) than male (19%).
+
+## b) Age
+
+```{r}
+
+# summary statistics
+ra %>%
+  summarise(mean = mean(Age),
+            median = median(Age),
+            min = min(Age),
+            max = max(Age), 
+            q25 = quantile(Age, 0.25),
+            q75 = quantile(Age,0.75),
+            sd = sd(Age)) %>%
+mutate(IQR = q75 - q25)
+
+
+# histogram 
+ra %>% ggplot(aes(x = Age)) + # plot age
+  geom_histogram(binwidth = 1) + # each year gets its own bin, the larger the bin the smoother the histogram
+  theme_bw() # background color
+
+# boxplot
+ra %>% 
+  ggplot(aes(y = Age)) + # change to x = Age for a horizontal boxplot
+  geom_boxplot() + 
+  theme_bw() # background color
+
+```
+
+[Description of variable distribution here:]{.underline} The data here is kind of bimodal, with most of the participants being within the 40-70 age range (youngest being 42), no one is between 70 and 75 and there is a smaller distribution around 75-90. The mean is 60.3 years old with the median at 59 years.
+
+## c) Whether DAS_28 was measured
+
+```{r}
+# DAS_28 -- Disease activity score for 28 joints (higher indicates more severe disease)  
+# DAS28_YN -- Was DAS_28 measured? (1 = no, 2 = yes)  
+
+# table of counts
+xtabs( ~ DAS28_YN, data = ra) %>% addmargins()
+# table of proportions
+xtabs( ~ DAS28_YN, data = ra) %>% prop.table()
+
+# plot (histogram/bar plot)
+ra %>% 
+  ggplot(aes(x = DAS28_YN)) + 
+  geom_bar() + 
+  theme_bw() 
+```
+
+[Description of variable distribution here:]{.underline} DAS28 was measured for a majority of participants (87.2%), while
+
+## d) DAS_28 values
+
+```{r}
+# summary stats
+ra %>%
+  drop_na(DAS_28) %>% # this is necessary so that you don't get all NA values below
+  summarise(mean = mean(DAS_28),
+            median = median(DAS_28),
+            min = min(DAS_28),
+            max = max(DAS_28), 
+            q25 = quantile(DAS_28, 0.25),
+            q75 = quantile(DAS_28,0.75),
+            sd = sd(DAS_28)) %>%
+mutate(IQR = q75-q25)
+
+# histogram
+ra %>% 
+  ggplot(aes( x = DAS_28)) + 
+  geom_histogram(binwidth = 1) + # bin width
+  theme_bw()
+
+# boxplot
+ra %>% 
+  ggplot(aes( y = DAS_28)) + 
+  geom_boxplot() + 
+  theme_bw()
+```
+
+[Description of variable distribution here:]{.underline} The scores are clustered around the lower values (\<10) wihth an outlier around 23. The Q25 is 1.825 and Q75 is 3.31 with an IQR of 1.485. Its median is 2.5 and mean is 2.92. Almost all participants had low disease scores except for one individual with a 20+ disease score.
+
+## e) Years from diagnosis
+
+```{r}
+# I don't include any code hints in this chunk. Use the chunks you've already completed to finish this section!
+
+# summary stats
+ra %>%
+  summarise(mean = mean(Yrs_From_Dx),
+            median = median(Yrs_From_Dx),
+            min = min(Yrs_From_Dx),
+            max = max(Yrs_From_Dx), 
+            q25 = quantile(Yrs_From_Dx, 0.25),
+            q75 = quantile(Yrs_From_Dx,0.75),
+            sd = sd(Yrs_From_Dx)) %>%
+mutate(IQR = q75 - q25)
+
+# histogram
+ra %>% 
+  ggplot(aes( x = Yrs_From_Dx)) + 
+  geom_histogram(binwidth = 1) + # bin width
+  theme_bw()
+
+# boxplot
+ra %>% 
+  ggplot(aes( y = Yrs_From_Dx)) + 
+  geom_boxplot() + 
+  theme_bw()
+
+
+```
+
+[Description of variable distribution here:]{.underline} This data is very right skewed. The mean is 9.4 years and the median is 7 years (which makes sense as the mean \> median in right skewed distributions). The Q25 is 3 years and Q75 is 11 years with an IQR of 8 years, but the maximum reaches all the way to 70 years from diagnosis.
+
+# Part 3: Bivariate Descriptions
+
+## a) Years from Diagnosis and DAS 28
+
+**Create an appropriate visualization and numerical summary to examine the relationship between DAS_28 and years from diagnosis (Yrs_From_Dx). Using these descriptions, comment on the relationship between years since diagnosis and disease severity.**
+
+```{r}
+# visualization
+# make a scatterplot of DAS_28 by Yrs_From_Dx
+ra %>%
+  ggplot(aes(x = Yrs_From_Dx, y = DAS_28)) + 
+  geom_point() + 
+  theme_bw()
+
+# numeric summary
+cor(ra$DAS_28, ra$Yrs_From_Dx, use = "pairwise.complete.obs")
+```
+
+[Response here (relationship between variables):]{.underline} There is a very weak negative correlation (-0.08). Most of the data is clustered towards the lower years, with a lower disease activity score. There is one outlier who has an extremely high disease activity score.
+
+## b) Possible problematic points
+
+**In the visualization you created above, are there any data points that you are concerned about that you might consider taking a second look at? If yes, what would happen if you excluded that point from the analysis?**
+
+```{r}
+# use this chunk to identiy any problematic points and exclude from the analysis you did above, if you found any potentially problematic points
+
+
+# remove outliers with IQR
+Q1_Dx <- quantile(ra$Yrs_From_Dx, 0.25, na.rm = TRUE)
+Q3_Dx <- quantile(ra$Yrs_From_Dx, 0.75, na.rm = TRUE)
+IQR_Dx <- Q3_Dx - Q1_Dx
+
+Q1_DAS <- quantile(ra$DAS_28, 0.25, na.rm = TRUE)
+Q3_DAS <- quantile(ra$DAS_28, 0.75, na.rm = TRUE)
+IQR_DAS <- Q3_DAS - Q1_DAS
+
+ra2 <- ra %>%
+ filter(Yrs_From_Dx > (Q1_Dx - 1.5 * IQR_Dx) & Yrs_From_Dx < (Q3_Dx + 1.5 * IQR_Dx)) %>%
+ filter(DAS_28 > (Q1_DAS - 1.5 * IQR_DAS) & DAS_28 < (Q3_DAS + 1.5 * IQR_DAS))
+
+# Visualization without outliers
+ra2 %>%
+ ggplot(aes(x = Yrs_From_Dx, y = DAS_28)) +
+ geom_point() +
+ theme_bw()
+
+# Numeric summary without outliers
+cor(ra2$DAS_28, ra2$Yrs_From_Dx, use = "pairwise.complete.obs")
+```
+
+[Response here:]{.underline} There is one outlier with a 20+ disease score. Getting rid of that outlier actually gave the data a weak positive correlation (0.283).
+
+## c) Whether DAS_28 was measured and years from diagnosis
+
+**Create an appropriate visualization and numerical summary to examine the relationship between whether the DAS_28 was measured and years from diagnosis (Yrs_From_Dx). Compare the distribution of time since diagnosis between the two groups (those with and those without DAS_28 measured). Are there any differences?**
+
+```{r}
+# summary stats
+ra %>%
+  group_by(DAS28_YN_f) %>%
+  summarise(mean = mean(Yrs_From_Dx),
+            median = median(Yrs_From_Dx),
+            min = min(Yrs_From_Dx),
+            max = max(Yrs_From_Dx),
+            q25 = quantile(Yrs_From_Dx, 0.25),
+            q75 = quantile(Yrs_From_Dx,0.75),
+            sd = sd(Yrs_From_Dx)) %>%
+  mutate(IQR = q75 - q25)
+
+# visualization(s)
+ra %>%
+  ggplot(aes(x = Yrs_From_Dx), fill = DAS28_YN_f) + 
+  geom_histogram(binwidth = 2) + 
+  facet_wrap(. ~ DAS28_YN_f)
+
+```
+
+[Description here:]{.underline} Both of the histograms are right-skewed (lower years from diagnosis), and there is significantly more data that have no disease score. The mean for no disease score (9.1 years) is lower than yes disease score (11.1 years), but "no" has a higher maximum (70 years) than the "yes" (42 years).
+
+## d) Whether DAS_28 was measured and use of biologics
+
+**Create an appropriate visualization and numerical summary to examine the relationship between whether the DAS_28 was measured and use of biologics (Biologic_f). Calculate the difference in the proportion of subjects with disease activity scores measured in study participants taking and not taking biologics. Using these descriptions, comment on the relationship between use of biologics and having DAS_28 measured.**
+
+```{r}
+# numeric summary
+xtabs(~ DAS28_YN_f + Biologics_f, ra) %>% addmargins()
+
+# visualization
+ra %>%
+  drop_na(DAS28_YN_f, Biologics_f) %>%
+  ggplot(aes(x = Biologics_f, fill = DAS28_YN_f)) +
+  geom_bar(position = "fill") +
+  labs(x = "Biologics Used?", y = "Proportion", fill = "DAS28 Measured?") +
+  theme_bw() +
+  scale_y_continuous(labels = scales::percent)
+```
+
+[Description here:]{.underline} The vast majority of participants did not have a disease score, and there are more participants who have not taken biologics than the ones who have. Out of the 318 participants who have not taken biologics, 89.3% do not have a disease score, and out of the 197 who have taken biologics, 83.7% do not have a disease score.
+
+## e) Consequences of 3c-d
+
+**Consider what you found in parts 3c and 3d. How could this impact the conclusions we can draw from this study?**
+
+[Response here:]{.underline} The vast majority of participants lacking a disease score does not seem to bode well for the study, as I would imagine these people may often just get exluded from analyses we want to perform, leaving us with a considerably smaller sample. Also, so many people who have not taken biologics also doesn't seem like great data.
+
+# Summary
+
+## a) Summarize your findings
+
+**Summarize your findings. Describe the study design and the sample collected. What trends did you find? Are there any caveats you would want your audience to consider when interpreting the results you have shown here?**
+
+[Response here:]{.underline} Overall I feel like this is a very niche study with not very good data. They picked one clinic in Philadelphia to choose all of their 500 participants and I don't think it was the best sampling method– all participants were at least middle-aged or elderly, most of the participants were female, the vast majority of them did not even have a disease activity score, the majority of years since diagnosis is also very recent (around 11 years) and disease scores were also typically very low– all in all I feel like this would not be widely applicable to the general population, though perhaps there are some conclusions that could apply specifically for older women with recent RA diagnoses and low disease scores.
+
+# Session Information
+
+Include this so if there are any issues we can check your R/package versions to see if this could be the source of any inconsistencies.
+
+```{r}
+sessionInfo()
+```
