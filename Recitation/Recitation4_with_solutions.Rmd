@@ -79,9 +79,17 @@ binom_data %>% # using data frame we just made
 ## 4. Mean and Variance
 
 ```{r}
-# calculate mean of simulated distribution
+# calculate mean of simulated distribution 
+# theoretically, this should be n*p
+10 * 0.656
+# empirically, we can calculate the mean in our simulated data:
+mean(x10000)
+mean(binom_data$private_insured)
 
-# calculate variance of simulated distribution
+# calculate variance of simulated distribution 
+# theoretically this should be n * p * (1 - p)
+10 * 0.656 * (1 - 0.656)
+var(binom_data$private_insured)
 
 ```
 
@@ -105,7 +113,7 @@ sum(x10000 == 4) / length(x10000)
 # alternative code:
 mean(x10000 == 4)
 
-# exact probability
+# exact probability (P(X = 4))
 dbinom(4, size = 10, prob = 0.656)
 
 ```
@@ -139,13 +147,19 @@ A little over 72% of my sample had a value of 7 or lower. The exact probability 
 # P(X > 6)
 # empirical (from our simulated distribution)
 mean(x10000 > 6)
-# theoretical (from tru binomial distribution)
+
+# theoretical (from true binomial distribution)
+# P(X = 7) + P(X = 8) + P(X = 9) + P(X = 10)
 sum(dbinom(7:10, size = 10, prob = 0.656))
-# or
-1 - pbinom(7, size = 10, prob = 0.656) # 1 - prob(p <= 6)
-  # u can also do
-pbinom(7, size = 10, prob = 0.656, lower.tail = F) # same thing as above
+
+# 1 - P(X <= 6) = P(X > 6) 
+# this is true since P(X <= 6) + P(X > 6) = P(X <= 6 or X > 6) = 1
+1 - pbinom(6, size = 10, prob = 0.656)
+pbinom(6, size = 10, prob = 0.656, lower.tail = F)
+
 ```
+
+About 53% of the binomial distribution should be
 
 ### c. P(X \>= 8)
 
@@ -154,11 +168,19 @@ pbinom(7, size = 10, prob = 0.656, lower.tail = F) # same thing as above
 ```{r}
 # P(X >= 8)
 # empirical (from our simulated distribution)
-mean(x1000 >= 8)
-# theoretical (from tru binomial distribution)
+mean(x10000 >= 8)
+
+# theoretical (from true binomial distribution)
 sum(dbinom(8:10, size = 10, prob = 0.656))
 
+# 1 - P(X <= 7) = P(X > 7) = P(X >= 8)
+1 - pbinom(7, size = 10, prob = 0.656)
 pbinom(7, size = 10, prob = 0.656, lower.tail = F)
+
+# we could also calculate this as 
+# P(X >= 8) = P(X > 8) + P(X = 8)
+pbinom(8, size = 10, prob = 0.656, lower.tail = F) + dbinom(8, size = 10, prob = 0.656)
+
 ```
 
 ## 6. Quantiles
@@ -264,7 +286,15 @@ Make a histogram of the data we just simulated:
 
 ```{r}
 # histogram
+normal_data %>% # using data frame we just made
+  ggplot(aes(x = z)) + # private_insured is our variable of interest 
+  geom_histogram(fill = "lightblue", color = "black") + # color bars in blue
+  theme_minimal() + # black and white background
+  labs(title = "The Standard Normal Distribution!",
+       subtitle = "Look at my pretty plot! I love ggplot!")
 
+# base R :(
+hist(z10000)
 
 ```
 
@@ -282,8 +312,11 @@ Estimate the following probabilities using the distribution we just simulated an
 # P(Z <= -1.96)
 
 # empirical
+mean(z10000 <= -1.96)
+mean(z10000 < -1.96)
 
 # theoretical
+pnorm(-1.96, mean = 0, sd = 1)
 
 ```
 
@@ -295,9 +328,12 @@ Estimate the following probabilities using the distribution we just simulated an
 # P(Z > 1.96)
 
 # empirical
+mean(z10000 >= 1.96)
+mean(z10000 > 1.96)
 
 # theoretical
-
+1 - pnorm(1.96, mean = 0, sd = 1)
+pnorm(1.96, mean = 0, sd = 1, lower.tail = F)
 ```
 
 ### b. P(Z \> 1.645)
@@ -308,8 +344,12 @@ Estimate the following probabilities using the distribution we just simulated an
 # P(Z > 1.645)
 
 # empirical
+mean(z10000 >= 1.645)
+mean(z10000 > 1.645)
 
 # theoretical
+1 - pnorm(1.645, mean = 0, sd = 1)
+pnorm(1.645, mean = 0, sd = 1, lower.tail = F)
 
 ```
 
@@ -321,9 +361,15 @@ Estimate the following probabilities using the distribution we just simulated an
 # P(|Z| > 2.58)
 
 # empirical
+mean(abs(z10000) > 2.58)
+
+mean(z10000 > 2.58) + mean(z10000 < -2.58)
 
 # theoretical
+pnorm(2.58, mean = 0, sd = 1, lower.tail = F) + pnorm(-2.58, mean = 0, sd = 1)
 
+# equal to 2 * P(Z > 2.58) by symmetry
+pnorm(2.58, mean = 0, sd = 1, lower.tail = F) * 2
 ```
 
 ### c. P(\|Z\| \<= 1.96)
@@ -331,12 +377,14 @@ Estimate the following probabilities using the distribution we just simulated an
 **The probability the absolute value of Z is less than or equal to 1.96**
 
 ```{r}
-# P(|Z|<=1.96)
+# P(|Z| <= 1.96)
 
 # empirical
+mean( z10000 <= 1.96 & z10000 >= -1.96)
+mean( z10000 <= 1.96) - mean(z10000 < -1.96 )
 
 # theoretical
-
+pnorm(1.96) - pnorm(-1.96)
 ```
 
 ## 5. Quantiles
@@ -348,6 +396,7 @@ Calculate the empirical 5th, 50th percentile (median), and 95th of the simulated
 ```{r}
 # empirical 5th, 50th, and 95th percentiles
 
+quantile(z10000, probs = c(.05, .5, .95))
 
 
 ```
@@ -379,8 +428,7 @@ Calculate the theoretical 5th, 50th percentile (median), and 95th of a $N(0,1)$ 
 
 ```{r}
 # theoretical 5th, 50th, and 95th percentiles
-
-
+qnorm(p= c(.05, .5, 0.95))
 ```
 
 # Normal QQ-plots
@@ -411,9 +459,10 @@ Can you tell why the plot looks like this?
 
 ```{r}
 # qq plot
-"INSERT CODE HERE" %>%
-  ggplot(aes("INSERT CODE HERE")) + 
-  "INSERT CODE HERE" +
+binom_data %>%
+  ggplot(aes(sample = private_insured)) + 
+  stat_qq() +
+  stat_qq_line() + 
   theme_bw() + 
   labs(x = "Theoretical Normal Distribution Quantiles",
        y = "Observed Data Quantiles")

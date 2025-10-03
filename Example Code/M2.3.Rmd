@@ -1,0 +1,274 @@
+---
+title: "M2 Lecture 3 & 4"
+author: "Haley Grant"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    number_sections: true
+    toc_depth: '3'
+    code_folding: show
+---
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+require(knitr)
+try(knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file()))
+
+try(knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file()))
+
+
+```
+
+# Set Up
+
+## R packages
+
+
+```{r}
+library(tidyverse)
+
+```
+
+## Data
+
+```{r}
+# read in data
+ra <- read_csv("Data/ArthritisTreatment.csv")
+
+```
+
+
+# Central Limit Theorem
+
+This code creates plots to demonstrate different probabilities under the sampling distribution if we change the parameters.
+
+```{r}
+# given mean
+mu = 98.6
+# given standard deviation
+sig = 0.62
+# sample size
+n = 43
+
+# probability
+pnorm(98.4, mean = mu, sd = sig / sqrt(n))
+
+# probability N(98.6, 0.62^2) is less than 0.984
+data.frame(x = seq(98.2, 99, by = .01)) %>%
+  ggplot(aes(x = x)) +
+  stat_function(fun = dnorm, args = list(mean = 98.6, sd = sig / sqrt(n))) +
+  stat_function(fun = dnorm, args = list(mean = 98.6, sd = sig / sqrt(n)), 
+                geom = "area", xlim = c(98.2, 98.4), 
+                fill = "blue", alpha = 0.5) +
+  geom_vline(xintercept = 98.4, color = "blue") +
+  theme_bw() 
+
+# same probability if n = 80
+data.frame(x = seq(98.2, 99, by = .01)) %>%
+  ggplot(aes(x = x)) +
+  stat_function(fun = dnorm, args = list(mean = 98.6, sd = sig / sqrt(80))) +
+  stat_function(fun = dnorm, args = list(mean = 98.6, sd = sig / sqrt(80)), 
+                geom = "area", xlim = c(98.2, 98.4), 
+                fill = "blue", alpha = 0.5) +
+  geom_vline(xintercept = 98.4, color = "blue") +
+  theme_bw()
+
+
+# interval between
+data.frame(x = seq(98.2, 99, by = .01)) %>%
+    ggplot(aes(x = x)) +
+    stat_function(fun = dnorm, args = list(mean = 98.6, sd = sig / sqrt(43))) +
+    theme_bw() + 
+    stat_function(fun = dnorm, args = list(mean = 98.6, sd = sig / sqrt(43)),  geom = "area", 
+                xlim = c(qnorm(0.025, mean = 98.6, sd = 0.62 / sqrt(43)), 
+                         qnorm(0.975, mean = 98.6, sd = 0.62 / sqrt(43))), fill = "blue", alpha = 0.5) + 
+    geom_vline(xintercept =  c(qnorm(0.025, mean = 98.6, sd = 0.62 / sqrt(43)), 
+                             qnorm(0.975, mean = 98.6, sd = 0.62 / sqrt(43))), color = "red")
+
+# interval above
+data.frame(x = seq(98.2, 99, by = .01)) %>%
+    ggplot(aes(x = x)) +
+    stat_function(fun = dnorm, args = list(mean = 98.6, sd = sig / sqrt(43))) +
+    theme_bw() + 
+    stat_function(fun = dnorm, args = list(mean = 98.6, sd = sig / sqrt(43)), geom = "area", 
+                xlim = c(qnorm(0.05, mean = 98.6, sd = 0.62 / sqrt(43)), 99), fill = "blue", alpha = 0.5) + 
+    geom_vline(xintercept =  c(qnorm(0.05, mean = 98.6, sd = 0.62/sqrt(43))), color = "red")
+
+# interval below
+data.frame(x = seq(98.2,99, by = .01)) %>%
+    ggplot(aes(x = x)) +
+    stat_function(fun = dnorm, args = list(mean=98.6, sd = sig/sqrt(43))) +
+    theme_bw() + 
+    stat_function(fun = dnorm, args = list(mean=98.6, sd = sig/sqrt(43)), geom = "area", 
+                xlim = c(98.2,qnorm(0.95, mean = 98.6, sd = 0.62/sqrt(43))), fill = "blue", alpha = 0.5) + 
+    geom_vline(xintercept =  c(qnorm(0.95, mean = 98.6, sd = 0.62/sqrt(43))), color = "red")
+
+```
+
+## Quantiles 
+
+This code shows two different ways to calculate the quantiles of the sampling distribution (either using the normal distribution with mean = mu and sd = sigma/sqrt(n) or by shifting and scaling standard normal quantiles).
+
+```{r}
+
+# 95th percentile
+# using parameters
+qnorm(0.95, mean = 98.6, sd = 0.62 / sqrt(43))
+# using standard normal quantiles
+98.6 + qnorm(0.95) * 0.62 / sqrt(43)
+
+# 2.5 and 97.5 percentiles
+# using parameters
+qnorm(c(0.025, 0.975), mean = 98.6, sd = 0.62 / sqrt(43))
+# using standard normal quantiles
+98.6 + qnorm(c(0.025, 0.975)) * 0.62 / sqrt(43)
+
+# 5th percentile
+qnorm(0.05, mean = 98.6, sd = 0.62 / sqrt(43))
+# using standard normal quantiles
+98.6 + qnorm(0.05) * 0.62 / sqrt(43)
+
+
+
+```
+
+# Confidence intervals
+
+This is how i could calculate the one-sided confidence interval:
+
+```{r}
+
+# one-sided confidence interval
+q95 = qnorm(0.95)
+q95
+# this is the only finite boundary of the interval because it is a one-sided CI
+pnorm(q95, lower.tail = F)
+
+```
+
+# Appendix
+
+## Bootstrapping
+
+```{r}
+
+set.seed(246)
+
+
+# plot sample distribution
+ra %>%
+  ggplot(aes(x = Yrs_From_Dx)) + 
+  geom_histogram(binwidth = 1) +
+  theme_bw() + 
+  labs(x = "Years from Diagnosis")
+
+# remove missing values for bootstrap
+ra.boot = ra %>% drop_na(Yrs_From_Dx)
+
+bootstrap <- data.frame(mean = rep(NA, 10000))
+
+for(i in 1:10000){
+  # resample WITH REPLACEMENT (same number as original observations)
+  samp <- sample(ra.boot$Yrs_From_Dx, size = nrow(ra.boot), replace = T)
+  # record mean for the bootstrap sample
+  bootstrap$mean[i] = mean(samp)
+}
+
+# plot bootstrap means
+bootstrap %>%
+ggplot(aes(x = mean)) + 
+  geom_histogram(binwidth = .1) +
+  theme_bw() + 
+  labs(x = "Average Years from Diagnosis")
+
+# summary statistics from original data
+ra.boot %>% 
+  summarise(mn = mean(Yrs_From_Dx),
+            sd = sd(Yrs_From_Dx),
+            n = n()) %>%
+  mutate(se = sd/sqrt(n))
+
+# summary statistics from bootstrap means
+bootstrap%>% 
+  summarise(mn = mean(mean),
+            se = sd(mean))
+
+# 95% CI using percentile method
+quantile(bootstrap$mean, c(0.025, 0.975))
+
+# compare to CLT-based 95% CI
+mean(ra.boot$Yrs_From_Dx) + c(-1,1) * qnorm(0.975) * sd(ra.boot$Yrs_From_Dx) / sqrt(nrow(ra.boot))
+
+
+
+```
+
+### Representative vs non-representative sample
+
+```{r}
+
+
+# population
+pop = data.frame(x = rexp(n = 10000))
+
+pop %>%
+  ggplot(aes(x = x)) + 
+  geom_histogram(binwidth = 0.5) +
+  labs(title = "Population Distribution") + 
+  theme_bw()
+
+# representative sample (random sample)
+good.samp = data.frame(x = sample(pop$x, size = 200) )
+
+# biased sample (only sample from tail of distribution)
+bad.samp = data.frame(x =sample(pop$x[pop$x>1.5], size = 200)) 
+
+good.samp %>%
+  ggplot(aes(x = x)) + 
+  geom_histogram(binwidth = 0.5, fill = "dodgerblue",color = "black") +
+  labs(title = "Represenative Sample")+ 
+  xlim(0, ceiling(max(pop$x))) +
+  theme_bw()
+
+bad.samp %>%
+  ggplot(aes(x = x)) + 
+  geom_histogram(binwidth = 0.5, fill = "firebrick1",color = "black") +
+  labs(title = "Biased Sample")+ 
+  xlim(0, ceiling(max(pop$x))) +
+  theme_bw()
+
+good.bootstrap <- data.frame(mean = rep(NA, 10000))
+bad.bootstrap <- data.frame(mean = rep(NA, 10000))
+
+for(i in 1:10000){
+  # resample WITH REPLACEMENT (same number as original observations)
+  g.samp <- sample(good.samp$x, size = nrow(good.samp), replace = T)
+  b.samp <- sample(bad.samp$x, size = nrow(bad.samp), replace = T)
+  # record mean for the bootstrap sample
+  good.bootstrap$mean[i] = mean(g.samp)
+  bad.bootstrap$mean[i] = mean(b.samp)
+}
+
+# plot bootstrap means
+good.bootstrap %>%
+  ggplot(aes(x = mean)) + 
+  geom_histogram(binwidth = .02, fill = "dodgerblue",color = "black") +
+  theme_bw() + 
+  xlim(floor(quantile(pop$x, .25)),ceiling(quantile(pop$x, .9))) +
+  labs(subtitle = "Representative Sample", x = "Bootstrap Means",
+       title = "Boostrap Sampling Distribution")
+
+bad.bootstrap %>%
+  ggplot(aes(x = mean)) + 
+  geom_histogram(binwidth = .02, fill = "firebrick1",color = "black") +
+  theme_bw() + 
+  xlim(floor(quantile(pop$x,.25)),ceiling(quantile(pop$x,.9))) +
+  labs(subtitle = "Biased Sample", x = "Bootstrap Means",
+       title = "Boostrap Sampling Distribution")
+
+
+
+```

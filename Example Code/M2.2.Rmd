@@ -1,0 +1,402 @@
+---
+title: "M2 Lecture 1"
+author: "Haley Grant"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    number_sections: true
+    toc_depth: '3'
+    code_folding: show
+---
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+require(knitr)
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+
+```
+
+# Set Up 
+
+## R packages
+
+```{r}
+
+library(tidyverse) #Load tidyverse
+library(kableExtra) # package for nice html tables
+```
+
+
+# Import data
+
+```{r}
+# read in data
+ra <- read_csv("Data/ArthritisTreatment.csv")
+
+```
+
+# Binomial distribution
+
+## Probability mass function (`dbinom`)
+
+These are the probabilities that a random variable, $X \sim Binom(n=3, p=0.38)$ is equal to 0, 1, 2, and 3:
+
+```{r}
+# notation is (dbinom(x=x, size = n, prob = p))
+
+# P(X = 0)
+dbinom(0, 3, 0.38)
+
+# P(X = 1)
+dbinom(1, 3, 0.38)
+
+# P(X = 2)
+dbinom(2, 3, 0.38)
+
+# P(X=3)
+dbinom(3, 3, 0.38)
+
+```
+
+## Cumuluative distribution function (`pbinom`)
+
+Here I'm using the `pbinom()` function to calculate the probabilities listed in the lecture slides. Here we are calculating the probability of $X$ being in a range of values, rather than a specific value.
+
+```{r}
+# P(X >= 2) is equivalent to P(X > 1)
+pbinom(1, 3, 0.38, lower.tail = F) 
+
+# equivalently P(X > 2) + P(X = 2)
+pbinom(2, 3, 0.38, lower.tail = F) + dbinom(2, 3, 0.38)
+
+# equivalently P(X <= 2) 
+pbinom(2, 3, 0.38)
+
+```
+
+## Plots
+
+This code creates plots showing the PMF (probability mass function, probability of individual values) and CDF (cumulative distribution function, probability of range of values).
+
+```{r}
+# plot histogram of distribution
+data.frame(x = 0:3)%>% 
+  mutate(probability = dbinom(x, 3, 0.38)) %>%
+  ggplot(aes(x = x, y = probability)) +
+  geom_bar(fill = "blue", stat = "identity") + 
+  theme_bw() +
+  labs(title = "Probability Distribution", subtitle = "Binomial(n = 3, p = 0.38)", y = "P(X=x)")
+
+# plot histogram of cumulative distribution
+data.frame(x = 0:3)%>% 
+  mutate(probability = pbinom(x, 3, 0.38)) %>%
+  ggplot(aes(x = x, y = probability)) +
+  geom_bar(fill = "blue", stat = "identity") + 
+  theme_bw() +
+  labs(title = "Cumulative Distribution", subtitle = "Binomial(n = 3, p = 0.38)", 
+       y = expression("P(X"<="x)"))
+  
+```
+
+### Example: Sampling with vs without replacement for large populations
+
+```{r}
+
+# choose 5 from population without replacement
+# P(none have COPD) = (11188 / 11371) * (11187 / 11370) * (11186 / 11369) * (11184 / 11368) * (11184 / 11367)
+p_exact = (11188 / 11371) * (11187 / 11370) * (11186 / 11369) * (11184 / 11368) * (11184 / 11367)
+
+# if we used binomial
+p_bin = dbinom(x = 0, size = 5, prob = 183 / 11371)
+
+# difference
+p_exact - p_bin
+# they are very similar because 5 is small relative to the total sample size. But if we picked a larger sample, this would cause more problems
+
+
+comp_binom_exact = function(n,x){
+   ones= prod((183 - (0:(x-1))) / (11371 - (0:(x-1)) ) )^(x > 0) # probability first x are 1
+   zeros = prod((11188-(0:(n-x-1)))/(11371-(x:(n-1)) ) )^((n - x) > 0) # probability last n-x are 0
+   p_exact = choose(n, x) * zeros * ones
+   if(x > 183 | n > 11371){p_exact = "Not possible with the given sample"}
+   p_binom = dbinom(x = x, size = n, prob = 183 / 11371)
+   return(list(p_exact = p_exact, p_bin = p_binom))
+}
+
+comp_binom_exact(500, 200)
+
+
+```
+
+
+# Poisson Distribution
+
+This is the code used to solve the Poisson distribution problems shown in the lecture slides:
+
+```{r}
+
+# P(X >= 4) = 1 - P(X < 4) = 1- P(X <= 3) since poisson is discrete
+ppois(q = 3, lambda = 1.8, lower.tail = F)
+
+# equivalently,
+1-sum(dpois(0:3, lambda = 1.8))
+
+# rate per 20 years = 1.8 means rate per 40 years is 1.8*(40/20)
+# probability of 8 in 40 years
+dpois(8, lambda = 1.8 * 2)
+
+# probability of more than 8 in 40 years
+ppois(8, lambda = 1.8 * 2, lower.tail = F)
+```
+
+## Plots
+
+This code creates plots showing the PMF (probability mass function, probability of individual values) and CDF (cumulative distribution function, probability of range of values).
+
+```{r}
+data.frame(x = seq(0, 8, by = 1)) %>%
+  mutate(y = dpois(x, lambda = 1.8)) %>%
+  ggplot(aes(x = x, y = y)) +
+  geom_point() +
+  theme_bw() + 
+  geom_vline(xintercept = 4, color = "blue", linetype = 2) + 
+  labs(title = "Events in 20 years")
+
+data.frame(x = seq(0, 15, by = 1)) %>%
+  mutate(y = dpois(x, lambda = 1.8 * 2)) %>%
+  ggplot(aes(x = x, y = y)) +
+  geom_point() +
+  theme_bw() + 
+  geom_vline(xintercept = 8, color = "blue", linetype = 2) + 
+  labs(title = "Events in 40 years")
+
+
+
+
+
+```
+
+## Sum of two Poissons
+
+This code (visually) shows that the sum of two independent Poisson distributed variables, $X_1 \sim Pois(\lambda_1)$, $X_2 \sim Pois(\lambda_2)$, follows a Poisson distribution with $\lambda = \lambda_1 + \lambda_2$
+
+```{r}
+# x1 and x2 are independent poisson distributions both with lambda = 1.8
+x1 = rpois(n = 10000, lambda = 1.8)
+x2 = rpois(n = 10000, lambda = 1.8)
+# y is a poisson distribution with lambda = 3.6
+y = rpois(n = 10000, lambda = 3.6)
+
+# compare y and x1 + x2 
+data.frame(value= c(x1, x2, x1+x2, y), 
+           rv = rep(c("X1","X2",
+                      "X1 + X2", "Y"), each = 10000)) %>%
+  ggplot(aes(x = value, fill = rv)) + 
+  geom_histogram() +
+  facet_wrap(. ~ rv, nrow = 2)+
+  theme_bw() + 
+  theme(legend.position = "none")
+  
+  
+
+
+```
+
+
+# Uniform Distribution
+
+This is the code used to solve the Uniform distribution problems shown in the lecture slides:
+
+```{r}
+
+# P(15 <= x <= 20)
+punif(20, min = 5, max = 20) - punif(15, min = 5, max = 20)
+
+# P(10 <= x <= 10)
+punif(10, min = 5, max = 20) - punif(10, min = 5, max = 20)
+
+# density
+dunif(x = c(0,5,10,15,20,25), min = 5, max = 20)
+
+
+
+
+```
+
+# Normal Distribution
+
+This code demonstrates the concept of quantiles and probabilities from a normal distribution. By default, the R function `pnorm()` and `qnorm()` assume a mean of 0 and standard deviation of 1 (the standard normal distribution), so we don't have to add these arguments, but we could add them if we wanted our code to be very clear (i.e. `pnorm(1.96, mean = 0, sd = 1)`).
+
+```{r}
+
+# P(Z < 1.96)
+pnorm(1.96)
+
+# double check going backwards
+# that is, find the point z such that P(Z < z) = 0.9750021
+qnorm(0.9750021)
+
+
+# P(Z > 1.96)
+pnorm(1.96, lower.tail = F)
+
+# double check going backwards
+# that is, find the point z such that P(Z > z) = 0.0249979
+qnorm(0.0249979, lower.tail = F)
+
+
+# P(-1.96 < Z < 1.96) = P(Z < 1.96) - P(Z < -1.96)
+pnorm(1.96) - pnorm(-1.96)
+
+# P(Z < -1.96 or Z > 1.96)
+pnorm(1.96, lower.tail = F) + pnorm(-1.96)
+
+# find 2.5th and 97.5th percentiles
+qnorm(p=c(0.025, 0.975))
+
+```
+
+## Z Scores
+
+### Example: Birth Weight
+
+This code shows the birth weight example for calculating Z scores.
+
+```{r}
+# birth weight example
+
+# calculate Z score (x-mean)/sd
+z = (2500 - 3250) / 550
+z
+
+# calculate P(Z < z) using standard normal
+pnorm(z)
+
+# calculate P(X < x) using original normal distribution
+pnorm(2500, mean = 3250, sd = 550)
+
+
+
+```
+
+## Sum of two Normals
+
+This code (visually) shows that the sum of two independent normally distributed variables, $X_1\sim N(\mu_1,\sigma^2_1)$, $X_2 \sim N(\mu_2, \sigma^2_2)$, follows a Normal distribution with $\mu = \mu_1 + \mu_2$ and $\sigma = \sqrt{\sigma^2_1 + \sigma^2_2}$.
+
+```{r}
+
+# independent normals
+z1 = rnorm(10000)
+z2 = rnorm(10000, mean = 3, sd = 2)
+# Normal (mu1 + mu2, s1^2 + s2^2)
+z3 = rnorm(10000, mean = 3, sd = sqrt(5))
+
+# plot
+data.frame(value = c(z1, z2, z1+z2,z3),
+           rv = rep(c("Z1", "Z2 ","Z3", "Z1+Z2"), 
+                    each = 10000)) %>%
+  ggplot(aes(x = value, fill = rv)) + 
+  geom_histogram() + 
+  facet_wrap(. ~ rv, nrow = 2, scales = "free_y") + 
+  theme_bw() +
+  theme(legend.position = "none")
+```
+
+This code (visually) shows that a normally distributed variable, $X \sim N(\mu,\sigma^2)$ scaled and shifted by scalars a and b, respectively follows a Normal distribution with mean $\tilde{\mu} = a\mu+b$ and standard deviation $\tilde{\sigma} = a\sigma$
+
+```{r}
+# aZ + b
+a = 2
+b = 3
+aZb = (a * z1) + b
+z4 = rnorm(n = 10000, mean = (a * 0) + b, sd = a)
+
+# plot
+
+data.frame(value = c(z1, aZb, z4),
+           rv = rep(c("Z1", "aZ1 +  b","Z4" ), 
+                    each = 10000)) %>%
+  ggplot(aes(x = value, fill = rv)) + 
+  geom_histogram() + 
+  facet_wrap(. ~ rv, nrow = 2, scales = "free_y") + 
+  theme_bw() +
+  theme(legend.position = "none")
+  
+```
+
+# QQ plots
+
+
+```{r}
+
+
+# Make a QQ plot with Age
+ra %>% 
+  ggplot(aes(sample = Age)) + 
+  stat_qq() + 
+  stat_qq_line() + 
+  theme_bw() + 
+  labs(x = "Theoretical Normal Quantiles",
+       y = "Observed Quantiles for Age" )
+
+
+# alternative base R code
+qqnorm(ra$Age)
+qqline(ra$Age)
+
+# qq plot for uniform distribution
+xunif = runif(10000, min = 0 , max = 10)
+
+qqnorm(xunif)
+qqline(xunif)
+
+# qq plot for binomial distribution
+xbinom = rbinom(n=200, size = 9, prob = 0.3)
+data.frame(xbinom = xbinom)%>%
+  ggplot(aes(x=xbinom)) + 
+  geom_histogram() + 
+  theme_bw()
+
+qqnorm(xbinom)
+qqline(xbinom)
+
+# qq plot for other discrete random variable that can take on values from 0 to 9
+# I've chosen a distribution whose pmf is monotonically increasing with x
+xnotbinom = sample(x = 0:9, size = 200, replace = T, prob = c(1:10)/(sum(1:10))) 
+
+data.frame(xnotbinom = xnotbinom)%>%
+  ggplot(aes(x=xnotbinom)) + 
+  geom_histogram() + 
+  theme_bw()
+
+qqnorm(xnotbinom)
+qqline(xnotbinom)
+
+
+
+## calculating theoretical normal distribution using observed statistics from data
+# theoretical normal distribution parameters
+xbar = mean(ra$Age)
+s_hat = diff(quantile(ra$Age, c(0.25, 0.75),names = F)) / diff(qnorm(c(0.25, 0.75)))
+
+# histogram of age vs theoretical normal distribution
+ra %>%
+  ggplot(aes(x = Age)) + 
+  geom_histogram(aes(y = after_stat(count) / sum(after_stat(count))), binwidth = 1,
+                 fill = "skyblue", color = "black") +
+  stat_function(fun = dnorm, args = list(mean = xbar, sd = s_hat), color = "red",linewidth = 1.5)+
+  theme_bw() + 
+  labs(y = "Proportion") + 
+  xlim(35, 90)
+
+
+
+```
+
+

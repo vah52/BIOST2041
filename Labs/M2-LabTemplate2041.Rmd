@@ -1,0 +1,336 @@
+---
+title: "M2 Lab Template"
+author: "Vanesa Hong"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    number_sections: false
+    toc_depth: '3'
+    code_folding: show
+---
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+require(knitr)
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+
+```
+
+# Housekeeping
+
+Load libraries
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+```
+
+# Part 1
+
+A study compared different treatments for preventing bone loss among postmenopausal women younger than 60 years old. The mean change in bone mineral density of the lumbar spine over a 2-year period for women in the *placebo* group was -1.8% (a mean decrease), with a standard deviation of 4.3%. **Assume the change in bone mineral density is normally distributed Xplacebo \~ Normal(mean=-1.8, sd=4.3).** The change in bone mineral density of the lumbar spine over a 2-year period among women in the *treatment (alendronate 5-mg)* group was +3.5% (a mean increase), with a standard deviation of 4.2%. **Assume this change in bone-mineral density is normally distributed Xtreatment \~ Normal(mean = 3.5, sd = 4.2)**.  A *decline* of 2% or more (i.e. \<= -2) in bone-mineral density is considered clinically significant.
+
+## 1A Probability of clinically significant decline for placebo
+
+**What is the probability of a randomly selected woman in the placebo group showing a clinically significant decline in bone-mineral density?**
+
+```{r error=T}
+# placebo group probability 
+
+pnorm(-2, mean = -1.8, sd = 4.3)
+```
+
+[Answer:]{.underline} The probability of a randomly selected woman in the placebo showing signifcant bone-mineral density decline is 48.15% or 0.4814512.
+
+## 1B Probability of clinically significant decline for treatment
+
+**What is the probability of a randomly selected woman in the treatment group showing a clinically significant decline in bone-mineral density?**
+
+```{r}
+# treatment group probability
+pnorm(-2, mean = 3.5, sd = 4.2)
+```
+
+[Answer]{.underline}: The probability of a randomly selected woman in the treatment showing significant bone-mineral density decline is 9.528% or 0.09517849.
+
+## 1C Probability of average among 50 placebo being clinically significant decline
+
+**Confirm that the conditions for the central limit theorem are met. After confirming the conditions, use the central limit theorem to find the probability of the mean of 50 women in the placebo group being a clinically significant decline in bone-mineral density.**
+
+[Central Limit Theorem conditions:]{.underline}
+
+-   Assumed randomly sampled.
+
+-   Assumed independently sampled.
+
+-   \>30 individuals sampled.
+
+-   Sample size is not greater than 10%.
+
+```{r}
+# probability calculations
+pnorm(-2, mean = -1.8, sd = 4.3/sqrt(50))
+```
+
+[Answer:]{.underline} The probability of the mean of 50 women in the placebo showing significant bone-mineral density decline is 37.11% or 0.3711206.
+
+## 1D Compare parts 1A and 1C
+
+**Is your answer in part C higher, lower, or the same as your answer in part A? Why?**
+
+[Answer:]{.underline} The answer in part C is lower than the answer in part A-- we divide the SD by the square root of the number of women selected (50), which results in a lower calculation. This makes sense as the mean probability of sampling significance from 50 random women is likely going to be lower than the mean probability of sampling just one random woman.
+
+# Part 2
+
+The Medicare Inpatient Hospitals by Provider and Service dataset provides information on inpatient discharges for Original Medicare Part A beneficiaries by IPPS hospitals. It includes information on the use, payment, and hospital charges for more than 3,000 U.S. hospitals that received IPPS payments. The data are organized by hospital and Medicare Severity Diagnosis Related Group (MS-DRG). [Descriptions of the columns/variables is available at the cms.gov website](#0).We are going to treat this as our population.
+
+## Data Import
+
+**Import the data set into R.**
+
+```{r}
+# load data 
+load("C:/Users/vanes/Documents/SCHOOL/comp bio/BIOST2041/Data/MUP_IHP.RData")
+```
+
+```{r}
+head(hosp)
+```
+
+\
+
+## 2A Mean and SD of medical expenditure variable
+
+**Find the mean and standard deviation of Avg_Mdcr_Pymt_Amt in the population.**
+
+```{r}
+# mean
+mean(hosp$Avg_Mdcr_Pymt_Amt)
+
+# standard deviation
+sd(hosp$Avg_Mdcr_Pymt_Amt)
+```
+
+[Answer:]{.underline} The mean is \$13,873.9 and the SD is \$15,626.41 of Avg_Mdcr_Pymt_Amt in the population.
+
+## 2B Histogram and QQ-plot
+
+**Generate a histogram and normal quantile plot (qq plot) of Avg_Mdcr_Pymt_Amt. Does it appear that the average payments come from a population with a normal distribution? Explain.**
+
+```{r}
+options(scipen = 999) # I just wanted to turn off scientific notation
+
+# histogram
+ggplot(hosp, aes(x = Avg_Mdcr_Pymt_Amt)) + 
+  geom_histogram() + 
+  labs(title = "Ranges of Average Medicare Payment Amounts", x = "Average Medicare Payment Amount (USD)")
+
+# QQ-plot
+hosp %>% ggplot(aes(sample = Avg_Mdcr_Pymt_Amt)) + 
+  stat_qq() + 
+  stat_qq_line() + 
+  labs(x = "Theoretical Quantiles", y = "Observed Quantiles")
+
+# mean
+avg_mean <- mean(hosp$Avg_Mdcr_Pymt_Amt)
+avg_mean
+
+# standard deviation
+avg_sd <- sd(hosp$Avg_Mdcr_Pymt_Amt)
+avg_sd
+```
+
+[Answer]{.underline}: The data definitely does not seem normally distributed, rather it is quite right skewed. In the histogram, the majority of payment amounts are low (well under \$10,000), with a right-skewed tail (the largest payout, based on max(hosp\$Avg_Mdcr_Pymt_Amt), is around \$51,000, but that seems to be more of an outlier). In the QQ plot, the data is also U-shaped upwards, showing the right skew.
+
+**We are going to imagine that we have collected one sample from this population. The dataset contains a column called my_sample that indicates if a row is in the sample or not. Make a new data set called `my_samp` by filtering the original data set such that only the rows with my_sample == 1. Verify that the sample size for this sub-sample is 1,200.**
+
+```{r}
+# filter data 
+#my_samp = hosp[hosp$my_sample >= 1, ]
+
+my_samp <- hosp %>%
+  filter(my_sample >= 1)
+
+# check sample size
+nrow(my_samp)
+```
+
+## 2C Sample
+
+**Make a histogram and QQ plot of Avg_Mdcr_Pymt_Amt in this sample (my_samp\$Avh_Mdcr_Pymnt_Amt). Calculate the mean and standard deviation. Using these, describe the distribution of the sample. How does it compare to the population?**
+
+```{r}
+
+# histogram
+ggplot(my_samp, aes(x = Avg_Mdcr_Pymt_Amt)) + 
+  geom_histogram() + 
+  labs(title = "Ranges of Average Medicare Payment Amounts in One Sample", x = "Average Medicare Payment Amount (USD)")
+
+# QQ-plot
+my_samp %>% ggplot(aes(sample = Avg_Mdcr_Pymt_Amt)) + 
+  stat_qq() + 
+  stat_qq_line() + 
+  labs(x = "Theoretical Quantiles", y = "Observed Quantiles")
+
+# mean
+my_samp_mean <- mean(my_samp$Avg_Mdcr_Pymt_Amt)
+my_samp_mean
+
+# standard deviation
+my_samp_sd <- sd(my_samp$Avg_Mdcr_Pymt_Amt)
+my_samp_sd
+
+```
+
+[Answer]{.underline}: The original mean was \$13,873.9 and SD was \$15,626.41. In my_samp, the new mean is \$15,075.74 and SD is \$19,723.54. This sample has a much higher mean and wider SD, and though it is still right-skewed, it has a very obvious mode/most common value range. Like the histogram, the QQ plot is still right-skewed (U-shaped), but the tails seem to be a little heavier here.
+
+## Resampling Procedure
+
+Here I am simulating many samples of size 1,200 from the population (same as our sample size). In practice, you would only get one sample! This is to help you visualize what a sampling distribution really is.
+
+**I have written this code for you. Don't change it! The output from this code is a data frame called `resamp_means`that contains all of the sample means from each of the simulated sub-sample drawn stored a single column called `samp_mean`.**
+
+```{r}
+##-----------------------------------------------------------------------
+# You do not need to change any code in this chunk
+# Just run the chunk so you have access to the output it creates!
+##-----------------------------------------------------------------------
+
+# set the seed for reproducibility
+# DO NOT CHANGE THIS 
+set.seed(10022022) 
+
+# number of iterations
+niter = 10000 # number of simulated samples I want to draw (10,000)
+
+# save observed medicare payment data in vector called x
+x = hosp$Avg_Mdcr_Pymt_Amt
+
+# check the length of x
+n = sum(hosp$my_sample)
+
+resamp_obs = data.frame(matrix(NA, nrow = n, ncol = niter))
+resamp_means = data.frame(samp_mean = rep(NA, niter))
+names(resamp_obs) = paste0("sample",1:niter)
+for(i in 1:niter){
+  # sample with replacement a sample of size n (the length of the original data vector) from the observed data
+  resamp = sample(x, size = n, replace = F) 
+  resamp_obs[,i] = resamp
+  resamp_means$samp_mean[i] = mean(resamp)
+}
+
+
+
+
+```
+
+## 2D Distribution of means
+
+**Make a histogram and QQ plot of the means of the simulated sub-samples (`resamp_means$mean`). Calculate the mean and standard deviation of the simulated sample means. Using these, describe the distribution (shape, center, spread).**
+
+```{r}
+
+# histogram
+ggplot(resamp_means, aes(x = samp_mean)) + 
+  geom_histogram() + 
+  labs(title = "Ranges of Average Medicare Payment Amounts in 50 Samples", x = "Average Medicare Payment Amount (USD)")
+
+# QQ-plot
+resamp_means %>% ggplot(aes(sample = samp_mean)) + 
+  stat_qq() + 
+  stat_qq_line() + 
+  labs(x = "Theoretical Quantiles", y = "Observed Quantiles")
+
+# mean
+resamp_mean <- mean(resamp_means$samp_mean)
+resamp_mean
+
+# standard deviation
+resamp_sd <- sd(resamp_means$samp_mean)
+resamp_sd
+
+```
+
+[Answer]{.underline}: The new mean is \$13,876.81 and SD is \$452.9162. This data has been normalized into a, well, normal distribution. The histogram is a bell curve that is relatively centered around \$13,000-\$14,000 (the mean), and the spread is not extreme either (around 453). The QQ plot is also relatively linear and aligned with the QQ line.
+
+## 2E Comparing part 2A, 2C, and 2D
+
+**Explain the difference between the distributions you showed in Parts 2A, 2C, and 2D[.]{.underline}**
+
+[Answer]{.underline}: 2A and 2C were both extremely right skewed, while 2D is a normal distribution. 2A is a distribution of all of the data (165,281 individuals), while 2C is a distribution of one sample of the data, including 1,200 individuals. 2D is a distribution of simulated 10,000 samples of 1,200 individuals each.
+
+## 2F what was n?
+
+**In the code for the resampling procedure, I used the following function:**
+
+`sample(x, size = n, replace = T)`
+
+**where n was the sample size for each of the simulated sub-samples that I drew. What was that sample size and why did I choose that number?**
+
+```{r}
+# code chunk included in case you need it to check n
+
+# in the code it says:
+
+# check the length of x
+n = sum(hosp$my_sample)
+n
+```
+
+[Answer:]{.underline} n is 1200 individuals in each of these sub-samples. It is the sum of the my_sample column; that is to say, it is the total number of rows that have been indicated that it is a sample.
+
+## 2G Standard Error Estimate
+
+**In class, we defined the term standard error. Which of the following is an appropriate estimate of the standard error of the sample mean in this example: the standard deviation calculated in part 2A, the standard deviation calculated in part 2C, or the standard deviation calculated in part 2D? Explain your choice.**
+
+[Answer]{.underline}: SE = sigma/sqrt(n), the standard deviation of 2A would be a good good estimate of the standard error of the sample mean, as it is not the simulated sample nor is it only a singular sample but rather the whole population.
+
+## 2H CLT based distribution
+
+**Given what you know about the population standard deviation and the sample size, what distribution should the sampling distribution for the mean follow? What should that distribution's mean and standard deviation be?**
+
+```{r}
+# code for CLT values, if you need it
+
+```
+
+[Answer]{.underline}: Since this follows all the conditions of the CLT, most notably that sample size \> 30, it should be following an approximately normal distribution. Thus it should look similar to 2D, with a similar bell curve centered around the mean and a tighter standard deviation.
+
+## 2I How extreme is our sample?
+
+**What proportion of the simulated sample means are at least as far from the population mean as our observed sample mean?**
+
+```{r}
+# hint: the distance between our sample mean and the population mean can be calculated as abs(xbar - mu)
+# sample mean - pop mean 
+
+# abs(15075.74 - 13873.9)
+distance = abs(mean(resamp_means$samp_mean)-mean(hosp$Avg_Mdcr_Pymt_Amt))
+n = 1200
+z = (distance/(sd(resamp_means$samp_mean)/sqrt(n)))
+pnorm(z, mean=0, sd=1, lower.tail=F)*2
+```
+
+[Answer:]{.underline} 0.8236 or 82.36% is the proportion of simulated means that are at least as far from the population mean as our observed sample mean– essentially, the p-value. It makes sense that the p-value is this high since the real population and sample means are so right-skewed, but the simulated samples are normally distributed.
+
+## 2J Hypothesis test
+
+**The 95% confidence interval based on our sample (`my_samp`) is (\$14,066.52, \$14,579.05). If we had used this confidence interval to run the hypothesis test for the null hypothesis that the mean is equal to \$13.873.90 vs the two-sided alternative, what would the conclusion of the test be?**
+
+Answer: The null would be (falsely) rejected, since the mean falls outside the range of the confidence interval.
+
+## 2K Hypothesis Test
+
+**What type of result does the conclusion from part J represent: a correct conclusion, a Type I error, or a Type II error?**
+
+Answer: This would be a Type I error (false positive), since the null was rejected when it was not supposed to be.
+
+# Session Information
+
+```{r}
+sessionInfo()
+```
