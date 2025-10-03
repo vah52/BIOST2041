@@ -1,0 +1,411 @@
+---
+title: "Recitation 5: Solutions"
+author: "Haley Grant"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    number_sections: false
+    toc_depth: '4'
+    code_folding: show
+  word_document:
+    toc: true
+    toc_depth: '4'
+---
+
+```{r setup, include=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+```{r}
+library(tidyverse)
+```
+
+# Population
+
+The population we're going to be working with today is the data from our class on Monday (about hours after 8 PM that you went to bed on Sunday).
+
+```{r}
+# load RData file with class data 
+# verbose = T just means R will print out the name of the object being loaded to tell you what to call it
+load("Data/samp_activity_25.RData", verbose = T)
+
+# take a look at the first 6 rows
+head(dt)
+```
+
+## Plot Population
+
+Let's make a plot of the distribution of times in our population:
+
+```{r}
+
+# make a histogram of the original variable
+dt %>% 
+  ggplot(aes(x = Time)) + 
+  geom_histogram(binwidth = 0.5, color = "black", fill = "midnightblue") + 
+  theme_bw()
+
+```
+
+## Population mean and standard deviation
+
+Here we are going to calculate the mean and standard deviation of bedtimes in our population. We are going to use these values later, so let's go ahead and save them under the names `mu` and `sigma`, respectively.
+
+```{r}
+
+# calculate population mean and standard deviation
+# mean
+mu = mean(dt$Time)
+
+# standard deviation
+sigma = sd(dt$Time)
+
+# print the values of mu and sigma
+mu ; sigma
+
+```
+
+The mean and standard deviation are 3.98 and 1.92 hours, respectively. This means that on average, students went to bed around midnight on Sunday, with typical variation of about plus or minus 2 hours.
+
+## Sample of Size 40
+
+Here I've included code to draw a sample of size 40 from our population. Here I'm drawing with replacement here because we don't have a huge population (\~100), so an individual can show up more than once in a sample.
+
+```{r}
+# draw a sample of size 40 from our population
+# replace = T just means I could draw the same person multiple times
+my_sample = sample(dt$Time, size = 40, replace = T)
+
+# save in a data frame with one column called `time` (for plotting)
+my_sample_data = data.frame(time = my_sample)
+
+```
+
+## Plot the Sample
+
+Make a histogram of the sample you drew from the population:
+
+```{r}
+# histogram of sample values
+my_sample_data %>% 
+  ggplot(aes(x = time)) + 
+  geom_histogram(binwidth = 0.5, color = "black", fill = "midnightblue") + 
+  theme_bw()
+
+```
+
+Your sample may look difference. This is because we sampled randomly!
+
+## Sample Mean
+
+Use this code chunk to calculate the sample mean from the sample of size 40 we drew above:
+
+```{r}
+# sample mean from my_sample
+xbar = mean(my_sample_data$time)
+mean(my_sample)
+
+# print value
+xbar
+```
+
+Again, you may get a difference sample mean here because we all got slightly different samples.
+
+## Calculate a confidence interval
+
+In the code chunk below, I've included code to calculate a 95% confidence interval based on your sample data drawn above. I've assumed that we know the underlying standard deviation in the population (sigma), but in practice we won't actually know this (more on this in Module 3).
+
+```{r}
+
+# calculate 95% confidence interval from our sample
+lower = xbar - qnorm(0.975) * sigma / sqrt(40) 
+upper = xbar + qnorm(0.975) * sigma / sqrt(40)
+
+lower ; upper
+
+upper - lower
+```
+
+Everyone should get a different confidence interval (lower and upper bounds), but everyone should have an interval of the same width since we used the same margin (we used the population standard deviation, which we will stop doing in Module 3).
+
+## Does our confidence interval cover the true population mean?
+
+To check if the confidence interval covers (overlaps with) the true population mean, mu, we want to check if the lower bound is less than or equal to mu (lower \<= mu) and the upper bound is greater than or equal to mu (upper \>= mu):
+
+```{r}
+
+# check if confidence interval covers the true mean
+ifelse(lower <= mu & upper >= mu, "C.I. covers mu!", "C.I. doesn't cover mu :(")
+
+```
+
+This will print if the confidence interval from your sample covers the true population mean, mu. About 95% of us should have confidence intervals that contain (cover/overlap) with the population mean, but an unlucky 5% of us will have confidence intervals that don't contain the true value.
+
+# Repeating the process 10,000 times
+
+To see the properties of confidence intervals and sampling distributions, we need to run this process many times (remember, **a sampling distribution is the distribution of the sample statistic across all possible samples of size n, so we're going to need to look at more than one sample to visualize this distribution!**)
+
+## Draw 10,000 samples and calculate the mean on each one
+
+Below, I've included code to draw samples of size 40 (with replacement) 10,000 times from our population. Each time I draw a sample, I am calculating the average (mean) time past 8PM within the sample of size 40. I'm saving those sample means in a data frame called sample_means.
+
+```{r}
+set.seed(123)
+
+# make an empty data frame to hold sample means
+sample_means = data.frame(iteration = 1:10000, sample_mean = NA)
+
+# sample 10,000 times
+for(i in 1:10000){
+  samp_i = sample(dt$Time, size = 40, replace = T)
+  sample_means$sample_mean[i] = mean(samp_i)
+}
+ 
+```
+
+## Plot the 10,000 sample means
+
+Now, let's make a plot of the 10,000 sample means (from the 10,000 samples we just drew from our population).
+
+```{r}
+# histogram of sample means
+sample_means %>%
+  ggplot(aes(x = sample_mean)) + 
+  geom_histogram(fill = "magenta", color = "black", binwidth = .1) +
+  theme_bw()
+ 
+```
+
+We should all get the same values here since I set the random seed to 123. The distribution of sample means looks approximately normally distributed.
+
+## Mean and Standard Deviation of the 10,000 sample means
+
+Calculate the mean and the standard deviation of the 10,000 sample means. Compare this to the theoretical mean and standard error based on the population values (using sample size of 40).
+
+```{r}
+# mean and sd of 10,000 sample means (using sample_means)
+mean(sample_means$sample_mean)
+sd(sample_means$sample_mean)
+
+# mean and standard error based on the population values and sample size of 40
+# recall standard error = (population sd) / sqrt(n)
+mu ; sigma / sqrt(40)
+```
+
+The mean of the sample means is 3.97, which is really close to the true population mean, $\mu$ (3.975248). The standard deviation of the sample means is about 0.3. This is smaller than the population standard deviation, because we are looking at the variability in averages, rather than individual points. This is very close to $\sigma / \sqrt{40} = 0.303$, though, which is the theoretical standard deviation of the sampling distribution of the mean. There is a special name for this--the standard error.
+
+# Calculate 95% confidence intervals for each sample mean
+
+Now let's calculate confidence intervals for each sample mean that we drew. In practice, we won't know the true standard deviation in the population based only on a sample (more on this in Module 3), but for now we'll pretend that we did know it and it is the population standard deviation we calculated above.
+
+Run the following line of code to calculate 95% confidence intervals for each of the 10,000 samples that we simulated.
+
+```{r}
+
+# calculating confidence intervals for each iteration using formula:
+#                       xbar +/-   z_{0.975} * sigma/ sqrt(n)
+cis = sample_means %>%
+  mutate(ci_lower = sample_mean - qnorm(0.975) * sigma / sqrt(40),
+         ci_upper = sample_mean + qnorm(0.975) * sigma / sqrt(40))
+
+
+
+```
+
+## What percent of them cover the true population mean?
+
+Let's calculate the proportion of confidence intervals of out 10,000 confidence intervals cover the true mean.
+
+```{r}
+# a confidence interval covers mu if the lower bound is <= mu and upper bound is >= mu
+cis = cis %>% 
+  mutate(covers_mu = ci_lower <= mu & ci_upper >= mu)
+
+# calculate proportion
+cis %>% 
+  summarise(coverage_probability = mean(covers_mu))
+
+```
+
+About 95% of the 10,000 confidence intervals that we constructed from different samples contained the true population mean, $\mu$, but about 5% of them did not. In practice, we won't actually know if our confidence interval covers the truth or not (we don't know the value of $\mu$!), but this demonstrates that the long run probability of covering the mean for a $(1-\alpha)\times 100\%$ confidence interval should be $(1-\alpha)$.
+
+## Plot the first 100 confidence intervals:
+
+Plot the first 100 confidence intervals using the following code:
+
+```{r}
+# plotting confidence intervals
+
+cis %>%
+  slice(1:100) %>% # only keep rows 1:100
+  ggplot(aes(x = sample_mean, y = iteration, color = covers_mu)) + 
+  geom_point() + 
+  geom_segment(aes(xend = ci_lower, yend = iteration)) +
+  geom_segment(aes(xend = ci_upper, yend = iteration)) + 
+  theme_bw() + 
+  geom_vline(xintercept = mu, linetype = 2)
+  
+
+
+```
+
+We can see how our original sample stacks up here:
+
+```{r}
+
+# orig sample data
+orig_sample = data.frame(iteration = -10, # I'm calling this iteration -10 so we can distinguish this value on the next plot
+            sample_mean = xbar, 
+            ci_lower = lower, 
+            ci_upper = upper,
+            covers_mu = lower <= mu & upper >= mu)
+
+# combine original sample with other 10,000
+bind_rows(orig_sample,cis)%>%
+  mutate(orig = iteration < 0) %>%
+  slice(1:101) %>% # only keep rows 1:100
+  ggplot(aes(x = sample_mean, y = iteration, color = covers_mu)) + 
+  geom_point() + 
+  geom_segment(aes(xend = ci_lower, yend = iteration)) +
+  geom_segment(aes(xend = ci_upper, yend = iteration)) + 
+  theme_bw() + 
+  geom_hline(yintercept = 0)+
+  geom_vline(xintercept = mu, linetype = 2) 
+
+
+```
+
+Note that the values of $\bar{x}$ (the sample mean) that give us confidence intervals that do not overlap with the true mean $\mu$, are the ones that are very far from $\mu$. How far? About 1.96 standard errors from $\mu$, i.e. $z_{1-\alpha/2}*\sigma/\sqrt{n}$.
+
+Next, I'm showing the value of the sample means for which the confidence intervals do and do not overlap with the true population mean, mu. Notice that the samples that led to the most extreme sample means (farthest from the population mean, mu), were the ones whose confidence intervals did not overlap with mu.
+
+```{r}
+# histogram of sample means colored by if the corresponding confidence interval covers the true mean (mu) or not
+cis %>%
+  ggplot(aes(x = sample_mean, fill = covers_mu)) + 
+  geom_histogram(binwidth = 0.01) + 
+  theme_bw()
+
+
+```
+
+# Samples of Size 8
+
+## Draw 10,000 samples and calculate the mean on each one
+
+Let's see what happens if we decrease the sample size to 8.
+
+```{r}
+
+# make an empty data frame to hold sample means
+sample_means8 = data.frame(iteration = 1:10000, sample_mean = NA)
+
+# sample 10,000 times
+for(i in 1:10000){
+  samp_i = sample(dt$Time, size = 8, replace = T)
+  sample_means8$sample_mean[i] = mean(samp_i)
+}
+ 
+```
+
+## Plot the 10,000 sample means
+
+Now, let's make a plot of the 10,000 sample means (from the 10,000 samples we just drew from our population).
+
+```{r}
+# histogram of sample means
+sample_means8 %>%
+  ggplot(aes(x = sample_mean)) + 
+  geom_histogram(fill = "red", color = "black", binwidth = .1) +
+  theme_bw() + 
+  labs(title = "Sample Means",
+       subtitle = "From Samples of Size 8")
+ 
+# compare to samples of size 40
+sample_means %>%
+  ggplot(aes(x = sample_mean)) + 
+  geom_histogram(fill = "magenta", color = "black", binwidth = .1) +
+  theme_bw() + 
+  labs(title = "Sample Means",
+       subtitle = "From Samples of Size 40")
+```
+
+Notice that when we decrease the sample size, the standard deviation of the sampling distribution of the mean increases. This makes sense, becuase smaller samples are more likely to yield averages farther from the mean than large samples. For example,
+
+-   The probability of picking the person that went to bed at 6pm one time (for n = 1)is $1/101$
+-   The probability of picking the person that went to bed at 6pm 8 times (for n = 8) is $(1/101)^8$
+-   The probability of picking the person that went to bed at 6pm 40 times (for n = 40) is $(1/101)^{40}$
+
+In every case, the chance of getting a sample mean of -2 (6pm bedtime) is small, but it's way smaller for the biggest sample. This would hold for the extreme values at the top of our distribution as well--it is less common to get an average in the extreme tails of your original distribution as you increase the sample size. Averages start to stabilize (get less variable) with larger samples.
+
+## Mean and Standard Deviation of the 10,000 sample means
+
+Calculate the mean and the standard deviation of the 10,000 sample means. Compare this to the theoretical mean and standard error based on the population values (using sample size of 158.
+
+```{r}
+# mean and sd of 10,000 sample means (using sample_means)
+mean(sample_means8$sample_mean)
+sd(sample_means8$sample_mean)
+
+
+# mean and standard error based on the population values and sample size of 8
+# recall standard error = (population sd) / sqrt(n)
+mu ; sigma / sqrt(8)
+```
+
+The mean is about the same as before (theoretically equal, but we just randomly sampled) but the standard error is larger since n is smaller (dividing by a smaller number).
+
+## Calculate 95% confidence intervals for each sample mean
+
+```{r}
+
+# calculating confidence intervals for each iteration using formula:
+#                       xbar +/-   z_{0.975} * sigma/ sqrt(n)
+cis_8 = sample_means8 %>%
+  mutate(ci_lower = sample_mean - qnorm(0.975) * sigma / sqrt(8),
+         ci_upper = sample_mean + qnorm(0.975) * sigma / sqrt(8))
+
+
+
+```
+
+### What percent of them cover the true population mean?
+
+Let's calculate the proportion of confidence intervals of out 10,000 confidence intervals cover the true mean for the new sample size.
+
+```{r}
+# a confidence interval covers mu if the lower bound is <= mu and upper bound is >= mu
+cis_8 = cis_8 %>% 
+  mutate(covers_mu = ci_lower <= mu & ci_upper >= mu)
+
+# calculate proportion
+cis_8 %>% 
+  summarise(coverage_probability = mean(covers_mu))
+
+```
+
+The coverage probability should still be 95%! How does that work? The confidence intervals must have gotten wider, since the middle 95% region of the new sampling distribution with higher variability is a wider range of values. For there to still be 95% coverage, we need wider intervals.
+
+### Compare Length of Confidence Intervals
+
+Let's compare the length of the confidence intervals from the samples of size 40 to samples of size 8.
+
+```{r}
+# average length of confidence intervals from samples of size 40 (they are all the same since we used the population SD in our formula--this won't be true in module 3 when we move to t-tests)
+length40 = mean(cis$ci_upper - cis$ci_lower)
+length40
+# average length for samples of size 8
+length8 = mean(cis_8$ci_upper - cis_8$ci_lower)
+length8
+
+# ratio of lengths 
+sqrt(40) / sqrt(8) ; length8 / length40
+```
+
+The intervals got about 2.24 times wider.
