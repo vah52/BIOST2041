@@ -1,0 +1,158 @@
+---
+title: "M3 Lab"
+author: "PUT YOUR NAME HERE"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    number_sections: false
+    toc_depth: '3'
+    code_folding: show
+---
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+require(knitr)
+try(knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file()))
+
+try(knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file()))
+
+
+```
+
+# Part 0
+
+__Please check the Canvas page for this assignment to see the specific questions (some are lengthy so I didn't include them in their entirety in this document)__
+
+## R packages
+
+```{r}
+# load tidyverse
+library(tidyverse)
+```
+
+## Load data
+
+```{r}
+
+# load in the data 
+# verbose = T option will print out the name of the data frame that the obejct was stored with. This is the name you should use (you should see an object with this name in your environment)
+load("path_to_data", verbose = T)
+
+```
+
+## A. Make new factor variables
+
+
+```{r}
+
+# create the new variables I asked you for in the data (and save them in the data frame)
+
+
+
+```
+
+# Part 1  
+
+## A. Descriptives: Change in headache severity 
+
+```{r}
+# numerical and visual summaries here
+# we did things like this in lab 1, feel free to use that as a reference :)
+
+```
+
+Description of the variable:
+
+## B. Paired t test
+
+```{r}
+# check conditions of test
+
+# run a paired t test to test if the change in headache severity was 0 overall
+
+
+```
+
+Write-up here (remember to include all of the components I asked you for here):
+
+## C. Signed rank test
+
+```{r}
+# conditions for a signed rank test
+
+# signed rank test implementation
+
+```
+
+Write-up here:
+
+## D. Summary of part 1 
+
+Summary here:
+
+# Part 2  
+
+## A. Descriptives: Change in headache severity by treatment group
+
+```{r}
+
+# numerical and visual summaries here for change in headache severity
+
+```
+
+Description of the variable:
+
+## B. Descriptives: Sex and age distributions by treatment group
+
+```{r}
+# numerical and visual summaries here for sex 
+
+
+# numerical and visual summaries here for age
+```
+
+Description here:
+
+## C. Comment on 2B findings
+
+Comments about differences and how study design may have contributed here/possible impacts on next section:
+
+
+## D. Two-sample t test
+
+```{r}
+
+# check conditions of test
+
+# run a two sample t test to test if the change in headache severity was the same in each group
+
+```
+
+Write-up here:
+
+
+## E. Wilcoxon rank sum test
+
+```{r}
+
+# conditions for a rank sum test
+
+# rank sum test implementation
+
+```
+
+Write-up here:
+
+
+## F. Summary of part 2
+
+Summary here:
+
+# Session Information
+
+```{r}
+sessionInfo()
+```
