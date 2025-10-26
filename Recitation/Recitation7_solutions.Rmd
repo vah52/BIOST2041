@@ -1,0 +1,347 @@
+---
+title: "Recitation 7: Paired t-tests"
+author: "Haley Grant"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    number_sections: no
+    toc_depth: '4'
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+# Set-up
+
+## Load packages
+
+```{r}
+library(tidyverse)
+
+```
+
+## Import Data
+
+Here we are considering the birth weights of the first- and second-born children of mothers in Georgia.
+
+```{r}
+# import birth weight data
+bw <- read_csv("Data/ga_birthweights.csv")
+
+
+```
+
+## Question of Interest
+
+We are interested in testing if there is a difference in infant birth weight between first-born and second-born children. In this data set, we have data from mothers in Georgia who had at least two children, and we've included the birth weight in grams for their first- and second- born children.
+
+# Paired t test
+
+## Why paired test?
+
+**We will be running a paired t test to test for a difference in birth weight between first- and second- born children to mothers in Georgia. Why is it important to use a paired test in this scenario?**
+
+Answer: The data are inherently dependent because we have a set of children from each mother. Given that birth weights within a family may be correlated (genetics can play a role in birth weight, plus maternal variables like nutrition/etc. that could be similar between siblings), so it wouldn't be valid to use the two-sample t-test, which assumes independent groups.
+
+## Visualization
+
+**Make a new variable called difference_bw for the difference in birth weight between first- and second-born children (first - second). The make a plot of the two distributions separately and a plot showing the distribution of the differences.**
+
+```{r}
+# make new variable and add it to the original data set
+bw = bw %>%
+  mutate(difference_bw = first_born - second_born)
+
+# plot separately
+# first born children
+bw %>% 
+  ggplot(aes(y = first_born)) + 
+  geom_boxplot() + 
+  theme_bw()
+
+# second born children
+bw %>% 
+  ggplot(aes(y = second_born)) + 
+  geom_boxplot() + 
+  theme_bw()
+
+# plot that contains both (need to make a long format data set for this--don't worry if this code confuses you, you can skip it!)
+bw %>%
+  pivot_longer(3:4, names_to = "birth_order", values_to = "birth_weight") %>%
+  ggplot(aes(x = birth_order, y = birth_weight)) + 
+  geom_boxplot() + theme_bw()
+
+# plot differences
+bw %>% 
+  ggplot(aes(y = difference_bw)) + 
+  geom_boxplot() + 
+  theme_bw()
+
+```
+
+## Null and alternative hypotheses
+
+The null and alternative hypotheses for this test are:
+
+$$H_0: \mu_d = 0$$ $$H_A: \mu_d \neq 0$$
+
+Where $\mu_d$ is the average difference in birth weight between first- and second-born children.
+
+**Interpret the null and alternative hypotheses in words:**
+
+Null: Average birth weight among first-born children is the same as the average birth weight among second-born children.
+
+Alternative: Average birth weight in first-born children differs from average birth weight among second-born children.
+
+## Check Conditions
+
+**Verify that the conditions for the paired t-test are satisfied before proceeding.**
+
+Conditions:
+
+-   random sample from population
+-   n \> 30 ~or~ the distribution of differences in birth weight (first - second) is normal in the population
+
+```{r}
+# check assumptions
+# check normality
+bw %>%
+  ggplot(aes( sample = difference_bw)) + 
+  geom_qq() + 
+  geom_qq_line() + 
+  theme_bw()
+# doen't look too bad
+
+# check sample size just in case
+n = nrow(bw)
+sum(!is.na(bw$difference_bw))
+n
+# good to go!
+```
+
+## Distribution of observations under the null
+
+**What would the distribution of observed differences in birth weight look like if there was actually no difference in average birth weight between first- and second-born children?**
+
+Answer: We don't know what the shape should be! It should be whatever shape the distribution of differences has in the population. It should be centered at a mean of 0, but that's all we can really say.
+
+## Distribution of sample means under the null
+
+**What would the distribution of the average difference in birth weight across many samples look like if there was actually no difference in average birth weight between first- and second-born children?**
+
+Answer: A normal distribution! Specifically, N(0, sigma/sqrt(n)) where sigma is the population standard deviation of differences in birthweight (first - second) and n is the sample size we draw (here n = 200).
+
+## Sample Mean and Standard deviation
+
+**Use this section to calculate the observed sample mean and observed sample standard deviation of the difference in birth weights comparing first-born children to second-born children.**
+
+```{r}
+# sample mean 
+xbar = mean(bw$difference_bw)
+xbar
+# this will give me the same answer
+mean(bw$first_born) - mean(bw$second_born)
+
+# sample standard deviation
+s = sd(bw$difference_bw)
+s
+# this is not the same as the sum or difference of standard deviations or variance
+
+```
+
+## Test statistic
+
+**Use this section to calculate the test statistic for the paired t-test. What does the test statistic tell us?**
+
+```{r}
+
+# test statistic for the paired t test
+# recall the form of a t test statistic is (estimator - null value)/standard error
+
+# here this will be (xbar - 0) / (s / sqrt(n))
+t_obs = (xbar - 0) / (s / sqrt(n))
+t_obs
+
+SE = s / sqrt(n)
+SE
+```
+
+Interpret this value: Our sample mean, -94.84, is about 1.9 standard errors below the null hypothesized mean of 0 (in the sampling distribution for the sample mean under the null).
+
+## Distribution under the null
+
+Under the null hypothesis, we would expect the test statistic to follow a $t$ distribution with $n-1$ degrees of freedom. Here we're going to simulate a $t$ distribution to get a sense of what that should look like. I'm going to simulate 20,000 draws from a t distribution and make a plot to see what it looks like.
+
+```{r}
+set.seed(123)
+# simulate a t distribution with n-1 degrees of freedom
+n = nrow(bw)
+null_dist = data.frame(t = rt(n = 20000, df = n - 1))
+
+null_dist %>%
+  ggplot(aes(x = t)) + 
+  geom_histogram(bins = 50, fill = "lightgreen",color = "black" ) + 
+  theme_bw() + 
+  labs(title = "Theoretical Distribution under the Null",
+       x = paste0("T distribution with ", n - 1, " degrees of freedom"))
+
+
+```
+
+## Compare our test statistic
+
+Here I've added an extra line of code to show where our test statistic falls compared to the values drawn from the theoretical null distribution of the test statistic:
+
+```{r}
+# show our test statistic on plot
+null_dist %>%
+  ggplot(aes(x = t)) + 
+  geom_histogram(bins = 50, fill = "lightgreen",color = "black" ) + 
+  theme_bw() + 
+  labs(title = "Theoretical Distribution under the Null",
+       x = paste0("t distribution with ", n - 1, " degrees of freedom")) + 
+  geom_vline(xintercept = t_obs, color = "darkgreen", linewidth = 1)
+
+
+```
+
+## Cutoffs for extreme values
+
+We are going to run a test using a significance level of $\alpha = 0.01$.
+
+### Simulated
+
+**Using the distribution we just simulated, find the values of the t test statistic that we could observe that would be considered too extreme to believe the null, using our prespecified alpha.**
+
+```{r}
+# find cutoffs
+quantile(null_dist$t, probs = c(0.005, 0.995))
+```
+
+Based on the simulated test statistics under the null, the outer 1% (most extreme 1%--bottom 0.5% and top 0.5%) fall below -2.52 and above 2.57
+
+## Theoretical
+
+\_\_Using the `qt()` function, find the exact cutoffs that we will use for our rejection region (values of test statistics that we could get that will lead us to reject our null hypothesis of no difference in average birth weight between first- and second-born children).
+
+```{r}
+# theoretical cutoffs
+qt(c(0.005,0.995 ), df = 199)
+```
+
+The exact values of these quantiles in a t distribution with 199 degrees of freedom are -2.6 and 2.6.
+
+## Visualizing p-value
+
+In this section showing a visual representation of the p-value using our simulated null distribution.
+
+Here I'm coloring the null distribution based on if the value is more extreme (further from 0) than our observed test statistic:
+
+```{r}
+xbar = mean(bw$difference_bw)
+s = sd(bw$difference_bw)
+n = nrow(bw)
+t_obs = xbar / (s / sqrt(n))
+
+# visualize p-value
+null_dist %>%
+  mutate(extreme = case_when(abs(t) >= abs(t_obs) ~ "As or more extreme",
+                             abs(t) < abs(t_obs) ~ "Not as extreme"),
+         rejection_region = abs(t) >= qt(0.995, df = n-1)) %>%
+   ggplot(aes(x = t, fill = extreme)) + 
+   geom_histogram(bins = 75, aes(color = rejection_region) ) + 
+   theme_bw() + 
+   scale_fill_manual(values = c("purple","lightgreen")) + 
+   scale_color_manual(values = c("black","firebrick1")) + 
+   labs(title = "Theoretical Distribution under the Null",
+       x = paste0("t distribution with ", n - 1, " degrees of freedom"),
+       fill = element_blank()) + 
+   geom_vline(xintercept = t_obs, color = "darkgreen", linewidth = 1.5) +
+  geom_vline(xintercept = qt(0.995, df = n - 1), linetype = 2, color = "firebrick1")+
+  geom_vline(xintercept = qt(0.005, df = n - 1), linetype = 2, color = "firebrick1")
+
+
+```
+
+In the plot:
+
+-   purple area = p-value \> alpha of 0.01
+-   light green region = values outside rejection region
+-   red region = rejection region : has a value of 0.01 by design
+-   black outlines = values outside of the rejection region (99% of null distribution)
+
+## Paired t test
+
+**Use the t.test() function to run the paired t test to test if the difference between first- and second-born children is statistically significantly different from 0. Use a significance level of 0.01**
+
+```{r}
+# t test
+t.test(bw$difference_bw, conf.level = 0.99)
+
+```
+
+### p-value
+
+**What is the p-value for this test? Interpret the meaning of the p-value here:**
+
+p-value: 0.0593
+
+Interpretation: The probability of observing a sample mean difference in birthweight of -94.84 or more extreme (farther from 0) if the true difference in means was actually 0 is 0.0593.
+
+### Confidence interval
+
+**What is the 99% confidence interval for the mean difference in birth weights between first- and second-born children? Interpret the confidence interval.**
+
+Confidence interval: (-224.9, 35.2)
+
+Interpretation: We are 99% confident the true difference in average birth weight (first - second child) is in the interval -224.9 grams to 35.2 grams. Note that the null hypothesized value of 0 is in this interval (i.e fail to reject).
+
+### Conclusion of test
+
+**What is the conclusion of this test? Do we have sufficient evidence to conclude that there is a difference in birth weight between first- and second-born children?**
+
+Conclusion: We fail to reject the null. We don't have enough evidence to claim there is a difference in average birth weight between first- and second- born children.
+
+## Non-parametric Alternative
+
+Suppose we had wanted to run the non-parametric alternative to the paired t-test, the Wilcoxon signed rank test, to test for a median of 0 (rather than a mean of 0) for the differences in birthweight between first- and second- born children.
+
+### Conditions
+
+**What conditions do we need for this test? Do they appear to be met?**
+
+-   random sample
+-   population distribution (of differences) is symmetric (to talk about mediants)
+
+```{r}
+# check conditions
+# check symmetry
+bw %>%
+  ggplot(aes(x = difference_bw)) + 
+  geom_histogram() + 
+  theme_bw()
+# not perfect but not too bad
+```
+
+### Test
+
+**Run the test:**
+
+```{r}
+# Wilcoxon signed rank test
+wilcox.test(bw$difference_bw)
+```
+
+### Conclusion
+
+**What is the conclusion of the test above?**
+
+We fail to reject the null. We don't have enough evidence to claim that the median birth weight differs between first- and second- born children.

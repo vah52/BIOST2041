@@ -1,0 +1,595 @@
+---
+title: "M3 Lecture 1: one sample inference"
+author: "Haley Grant"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    number_sections: true
+    toc_depth: '3'
+    code_folding: show
+---
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+require(knitr)
+try(knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file()))
+
+try(knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file()))
+
+
+```
+
+# Set Up 
+
+## R packages
+
+```{r}
+
+library(tidyverse)
+
+```
+
+## Data Import
+
+```{r}
+# load RData file
+
+# the name will be "data"
+load("Data/acupuncture_data_reduced.RData", verbose = T)
+
+#print dataset
+data
+
+```
+
+# One-sided test (>)
+
+## Data visualization
+
+```{r}
+# histogram of number of headaches per month
+
+data %>%
+  ggplot(aes(x = f1)) + 
+  geom_histogram(fill = "white", color = "black", binwidth = 1) +
+  theme_bw() + 
+  labs(x = "Headache Frequency at Baseline \n (Headache Days per Month)")
+
+
+
+```
+
+## Summary statisics
+
+```{r}
+# sample mean of all baseline headache frequencies
+mean(data$f1)
+
+# sample variance
+sampvar = var(data$f1)
+sampvar
+# sample standard deviation
+sqrt(sampvar)
+
+```
+
+## Conditions
+
+Here we are checking the conditions for the one-sample t-test (normality and/or sample size)
+```{r}
+# CLT conditions
+# assume random sample
+# assume independent data 
+
+# normality
+data %>% 
+  ggplot(aes(sample = f1)) + 
+  geom_qq() + 
+  geom_qq_line() + 
+  theme_bw() + 
+  labs(x = "Theoretical Quantiles",
+       y = "Obsered Quantiles")
+
+# alternative code
+qqnorm(data$f1)
+qqline(data$f1)
+
+# data don't look normal, let's check the sample size
+n = length(data$f1)
+n
+# n = 401 so we can probably apply CLT
+
+```
+
+## Test by hand
+
+Here I'm showing code to calculate the test statistic, p-value, etc by hand.
+
+```{r}
+# null hypothesis for mean
+mu0 = 14
+# observed test statistic
+t_obs = (mean(data$f1) - mu0) / sqrt(sampvar / n)
+t_obs
+
+
+alph = 0.05
+
+# rejection region for one-sided hypothesis test
+# if T > upper_cutoff we reject 
+reject_cutoff = qt(1 - alph, df = n-1)
+reject_cutoff 
+
+# rejection region in terms of original variable
+qt(1 - alph, df = n - 1) * sqrt(sampvar) / sqrt(n) + 14
+
+# plot null distribution with rejection region and observed test statistic
+data.frame(t = seq(-4, 4, by = .01)) %>%
+  ggplot(aes(x = t)) +
+  stat_function(fun = dt, args = list(df = n - 1)) +
+  stat_function(fun = dt, args = list(df = n - 1), 
+                geom = "area", xlim = c(reject_cutoff, 4), 
+                fill = "red", alpha = 0.5) +
+  geom_vline(xintercept = reject_cutoff, color = "red") +
+  geom_vline(xintercept = t_obs, color = "blue") +
+  theme_bw() +
+  labs(x = bquote(t["df=400"]), y="density")
+
+# p value
+pt(t_obs,df = n - 1, lower.tail = F)  
+
+data.frame(t = seq(-7, 7, by = .01)) %>%
+  ggplot(aes(x = t)) +
+  stat_function(fun = dt, args = list(df = n - 1)) +
+  stat_function(fun = dt, args = list(df = n - 1), 
+                geom = "area", xlim = c(6.51, 7), 
+                fill = "blue", alpha = 0.5) +
+  geom_vline(xintercept = 6.5, color = "blue") +
+  theme_bw() +
+  labs(x = bquote(t["df=400"]), y="density")
+  
+
+
+# one-sided confidence interval lower bound
+mean(data$f1) - qt(p = 1 - alph, df = 401 - 1) * sqrt(sampvar / n)
+
+```
+
+## Test with `t.test()` function 
+
+We can get all of the information from above using the t.test function.
+
+```{r}
+# we could get all of this information using the t.test() function in R
+t.test(data$f1, mu = 14,  alternative = "greater")
+
+# alternate code to get the same results
+t.test(f1 ~ 1,
+       data = data, 
+       mu = 14, 
+       alternative = "greater")
+
+
+```
+
+# Two-sided Test
+
+## Test by hand
+
+This is how we would adjust the by-hand calculation for a two-sided test:
+
+```{r}
+
+# rejection region for two-sided hypothesis test
+# if |T| > |cutoff| we reject 
+reject_cutoff = qt(c(alph / 2, 1 - alph / 2), df = n - 1)
+reject_cutoff 
+
+# rejection region in terms of original variable
+reject_cutoff * sqrt(sampvar) / sqrt(n) + 14
+
+# plot null distribution with rejection region and observed test statistic
+data.frame(t = seq(-4, 4, by = .01)) %>%
+  ggplot(aes(x = t)) +
+  stat_function(fun = dt, args = list(df = n - 1)) +
+  stat_function(fun = dt, args = list(df = n - 1), 
+                geom = "area", xlim = c(reject_cutoff[2], 4), 
+                fill = "red", alpha = 0.5) +
+  stat_function(fun = dt, args = list(df=n-1), 
+                geom = "area", xlim = c(reject_cutoff[1], -4), 
+                fill = "red", alpha = 0.5) +
+  geom_vline(xintercept = reject_cutoff, color = "red") +
+  geom_vline(xintercept = t_obs, color = "blue") +
+  theme_bw() +
+  labs(x = bquote(t["df=400"]), y = "density")
+
+# p value
+pt(abs(t_obs), df = n - 1, lower.tail = F) * 2
+
+data.frame(t = seq(-7, 7, by = .01)) %>%
+  ggplot(aes(x = t)) +
+  stat_function(fun = dt, args = list(df = n - 1)) +
+  stat_function(fun = dt, args = list(df = n - 1), 
+                geom = "area", xlim = c(abs(t_obs), 7), 
+                fill = "blue", alpha = 0.5) +
+    stat_function(fun = dt, args = list(df = n - 1), 
+                geom = "area", xlim = c(-abs(t_obs), -7), 
+                fill = "blue", alpha = 0.5) +
+  geom_vline(xintercept = c(-1,1) * t_obs, color = "blue") +
+  theme_bw() +
+  labs(x = bquote(t["df=400"]), y = "density")
+  
+
+
+# two-sided confidence interval lower bound
+mean(data$f1) + qt(c(alph / 2, 1 - alph / 2), df = n - 1) * sqrt(sampvar / n)
+```
+
+## Test with `t.test()` function 
+
+The default setting for the `t.test()` function is a two-sided test so we can omit the "alternative" argument. If you want to, you could add the argument `alternative = "two.sided"` to the function.
+
+```{r}
+# we could get all of this information using the t.test() function in R
+t.test(data$f1, mu = 14)
+
+# this is equivalent
+t.test(f1 ~ 1,
+       data = data, 
+       mu = 14, 
+       alternative = "two.sided") # not necessary--could be omitted since two-sided is default
+```
+
+# One-sided test (<)
+
+We didn't do the other one-sided (less than) test in lecture, but this is how you could run that test with R code:
+
+```{r}
+# this would be our test if we wanted to use the null hypothesis mu < 14
+t.test(data$f1, mu = 14, alternative = "less")
+
+```
+
+# Why we shouldn't choose our alternative based on sample statistics
+
+## Assumptions: Null is true
+
+Here I'm going to be working in the context of a t test. Let's suppose that I want to test the __null hypothesis__ of $\mu = 10$.
+
+__Consider when the null is true. That is, the true population mean is 10.__
+
+## Sample assuming the null
+
+First, I'm going to sample from a normal distribution with a mean of 10 (so in these samples, the null is actually true). I'm going to collect 10,000 samples all of size 200 from a normal with mean $\mu = 10$.
+
+
+```{r}
+set.seed(12345)
+
+# generate a random samples of size 200 under the null
+samps = list()
+for(i in 1:10000){
+  samps[[i]] = rnorm(200, mean = 10, sd = 3)
+}
+
+
+```
+
+## Calculating test statistics and p-values for 3 types of tests
+
+Within each sample, I'm going to run each of the three types of t tests (the three different alternatives: !=, > and <). I'm storing the p-values in 3 different vectors:
+
+* One for the two-sided tests
+* One for the one-sided tests (>)
+* One for the one-sided tests (<)
+
+I'll also store the test statistics so we can take a look at their distribution (the test statistic doesn't depend on the alternative hypothesis so I only have to do this once).
+
+```{r}
+# get p-value for each different hypothesis test (!=, >, and <)
+
+twosided.ps = vector(length = 10000)
+less.ps = vector(length = 10000)
+greater.ps = vector(length = 10000)
+ts = vector(length = 10000)
+for(i in 1:10000){
+  twosided.ps[i] = t.test(samps[[i]], mu = 10)$p.value
+  less.ps[i] = t.test(samps[[i]], alternative = "less", mu = 10)$p.value
+  greater.ps[i] = t.test(samps[[i]], alternative = "greater", mu = 10)$p.value
+  ts[i] = t.test(samps[[i]], mu = 10)$statistic
+}
+
+```
+
+## Distribution of Test Statistics
+
+Let's take a look at what the distribution of test statistics from the 10,000 samples of size 200:
+
+
+```{r}
+# plot t statistics
+data.frame(tstat = ts) %>%
+  ggplot(aes(x = ts)) +
+  geom_histogram(bins = 50, fill = "skyblue", color = "black") + 
+  theme_bw() + 
+  labs(x = "T test statistics")
+```
+
+## Distribution of p-values for each alternative
+
+Now, let's take a look at what the distribution of p-values is in each setting (each type of test). Since the null is true, I would expect 5% of the p-values to be less less than or equal to 0.05, 1% to be less than or equal to 0.01, and so on. 
+
+```{r}
+# plot p values
+data.frame(twosided = twosided.ps, 
+           greater = greater.ps, 
+           less = less.ps) %>%
+  pivot_longer(1:3, names_to = "test.type", values_to = "p") %>%
+  ggplot(aes(x = p, fill = test.type)) + 
+  geom_histogram(binwidth = 0.02) +
+  facet_wrap(. ~ test.type) + 
+  theme_bw()
+
+# calculate proportion of p-values less than 0.1, 0.05, and 0.01
+# these would be the tests that we would reject if alpha is  0.1, 0.05, and 0.01, respectively
+data.frame(twosided = twosided.ps, 
+           greater = greater.ps, 
+           less = less.ps) %>%
+  pivot_longer(1:3, names_to = "test.type", values_to = "p")%>%
+  group_by(test.type) %>%
+  summarise( prop_under10 = mean(p <= 0.10),
+             prop_under05 = mean(p <= 0.05),
+             prop_under01 = mean(p <= 0.01))
+```
+
+This is what I would expect. Since the null is true, only 5% of random samples should produce a test statistic that gives me a p-value of 0.05 or lower, 1% should produce a test statistic that gives me a p-value of 0.01 or lower, etc.
+
+## Picking test based on data
+
+Now let's see what happens when my choice of test is informed by the test statistic. In this case, I'm going to check if the sample mean is larger or smaller than the null hypothesized mean, and based on if it is above or below, I will run the corresponding one-sided test (if xbar < mu0, run HA: mu < mu0 and if xbar > mu0, run HA: mu > mu0).
+
+
+```{r}
+
+# run the tests where you choose which one-sided test you use based on which side of the null hypothesis the sample mean is
+
+cheating.ps = vector(length = 10000)
+for(i in 1:10000){
+  xbar = mean(samps[[i]])
+  if(xbar>10){ cheating.ps[i] = t.test(samps[[i]], alternative = "greater", mu = 10)$p.value
+    } else {cheating.ps[i] = t.test(samps[[i]], alternative = "less", mu = 10)$p.value}
+}
+
+```
+
+## Distribution of p-values
+
+Let's see how the p-values compare for this procedure.
+
+```{r}
+
+data.frame(two.sided = twosided.ps, 
+           greater = greater.ps, 
+           less = less.ps, 
+           cheating = cheating.ps) %>%
+  pivot_longer(1:4, names_to = "test.type", values_to = "p") %>%
+  ggplot(aes(x = p, fill = test.type)) + 
+  geom_histogram(binwidth = 0.02) +
+  facet_wrap(. ~ test.type) + 
+  theme_bw() + 
+  geom_vline(xintercept = 0.05, linetype = 2)
+
+data.frame(two.sided = twosided.ps, 
+           greater = greater.ps, 
+           less = less.ps, 
+           cheating = cheating.ps) %>%
+  pivot_longer(1:4, names_to = "test.type", values_to = "p")%>%
+  group_by(test.type) %>%
+  summarise( prop_under10 = mean(p <= 0.10),
+             prop_under05 = mean(p <= 0.05),
+             prop_under01 = mean(p <= 0.01))
+  
+
+```
+
+We can see that in this case, the type I error rates are twice as high as they should be. We get smaller p-values because we let the sample statistic inform the test we use, which makes it more likely that we reject the null hypothesis. But the null hypothesis is true in this case, so it leads to higher rates of type I errors.
+
+# Sample Size Calculations 
+
+## n needed for margin of error
+
+```{r}
+sig_est = sd(data$f1)
+
+# sample size calculation for m=1
+((qnorm(1 - 0.05 / 2) * sig_est) / 1) ^ 2
+
+
+  
+
+# sample size calculation for m=0.5
+((qnorm(1 - 0.05 / 2) * sig_est) / .5) ^ 2
+
+
+```
+
+## Power and sample size for one-sample t test
+
+```{r}
+# delta is muA-mu0
+# sd comes from sample standard deviation (have to assume some sd)
+
+# n needed to get 80% power
+power.t.test(delta = 2.18, 
+             sd = 6.7, 
+             sig.level = 0.05,
+             power = 0.8, 
+             type = "one.sample",
+             alternative = "one.sided")
+
+se = sig_est / sqrt(53)
+
+data.frame(x = seq(10, 20, by = .01)) %>%
+  ggplot(aes(x = x)) +
+  stat_function(fun = dnorm, args = list(mean = 14, sd = se),
+                color = "#00BFC4") +
+  stat_function(fun = dnorm, args = list(mean = 16.18 ,sd = se),
+                color = "#F8766D") +
+  theme_bw() + 
+  stat_function(fun = dnorm, args = list(mean = 14, sd = se), 
+                geom = "area", xlim = c(qnorm(0.95, mean = 14, sd = se), 20), 
+                fill = "#00BFC4", alpha = 0.5)+
+  stat_function(fun = dnorm, args = list(mean = 16.18, sd = se), 
+                geom = "area", xlim = c(qnorm(0.95, mean = 14, sd = se), 20), 
+                fill = "#F8766D", alpha = 0.5) +
+  geom_vline(xintercept = qnorm(0.95, mean = 14, sd = se), 
+             color = "#00BFC4", linetype = 2) +
+  labs(x = element_blank(), y = element_blank())
+
+# power for sample of size 100
+power.t.test(n = 100, 
+             delta = 2.18, 
+             sd = 6.7, 
+             sig.level = 0.05,
+             type = "one.sample",
+             alternative = "one.sided")
+
+
+
+se = sig_est / sqrt(100)
+
+data.frame(x = seq(10, 20, by = .01)) %>%
+  ggplot(aes(x = x)) +
+  stat_function(fun = dnorm, args = list(mean = 14, sd = se),
+                color = "#00BFC4") +
+  stat_function(fun = dnorm, args = list(mean = 16.18, sd = se),
+                color = "#F8766D") +
+  theme_bw() + 
+  stat_function(fun = dnorm, args = list(mean = 14, sd = se), 
+                geom = "area", xlim = c(qnorm(0.95, mean = 14, sd = se), 20), 
+                fill = "#00BFC4", alpha = 0.5)+
+  stat_function(fun = dnorm, args = list(mean = 16.18, sd = se), 
+                geom = "area", xlim = c(qnorm(0.95, mean = 14, sd = se), 20), 
+                fill = "#F8766D", alpha = 0.5) +
+  geom_vline(xintercept = qnorm(0.95, mean = 14, sd = se), 
+             color = "#00BFC4",linetype = 2)+
+  labs(x = element_blank(), y = element_blank())
+
+
+
+# power for sample of size 100; two-sided test
+power.t.test(n = 100, 
+             delta = 2.18, 
+             sd = 6.7, 
+             sig.level = 0.05,
+             type = "one.sample",
+             alternative = "two.sided")
+
+# power for sample of size 100; larger effect size
+power.t.test(n = 100, 
+             delta = 4, 
+             sd = 6.7, 
+             sig.level = 0.05,
+             type = "one.sample",
+             alternative = "one.sided")
+
+```
+
+
+# T vs Z example
+
+```{r}
+
+# toy example t vs z
+# sample size 12
+t_obs = 2.01
+
+pval_t12 = (pt(2.01, df = 11, lower.tail = F) * 2) %>% round(digits = 3)
+pval_z = (pnorm(2.01, lower.tail = F) * 2) %>% round(., digits = 3)
+  
+data.frame(t = seq(-4, 4, by = .01)) %>%
+  ggplot(aes(x = t)) +
+  stat_function(fun = dt, args = list(df = 11)) +
+  stat_function(fun = dt, args = list(df = 11), 
+                geom = "area", xlim = c(t_obs , 4), 
+                fill = "purple1", alpha = 0.5) +
+  stat_function(fun = dt, args = list(df = 11), 
+                geom = "area", xlim = c(-t_obs , -4), 
+                fill = "purple1", alpha = 0.5) +
+  geom_vline(xintercept = t_obs, color = "purple1") +
+  geom_vline(xintercept = -t_obs, color = "purple1") +
+  geom_label(label = paste0("p-value = ", pval_t12),
+             x = 3.2, y = 0.4)+
+  theme_bw() +
+  labs(x = bquote(t["df=11"]), y = "density") + 
+  ylim(0,0.4)
+
+
+data.frame(z = seq(-4,4,.01)) %>%
+  ggplot(aes(x = z)) +
+  stat_function(fun = dnorm ) +
+  stat_function(fun = dnorm,  
+                geom = "area", xlim = c(t_obs , 4), 
+                fill = "blue", alpha = 0.5) +
+  stat_function(fun = dnorm,  
+                geom = "area", xlim = c(-t_obs , -4), 
+                fill = "blue", alpha = 0.5) +
+  geom_vline(xintercept = t_obs, color = "blue") +
+  geom_vline(xintercept = -t_obs, color = "blue") +
+  geom_label(label = paste0("p-value = ", pval_z),
+             x = 3.2, y = 0.4) +
+  theme_bw() +
+  labs(x = "z", y="density") +
+  ylim(0,0.4)
+
+
+# sample size 80
+
+pval_t80 = (pt(2.01, df = 79, lower.tail = F) * 2) %>% round(digits = 3)
+
+data.frame(t = seq(-4, 4, by = .01)) %>%
+  ggplot(aes(x = t)) +
+  stat_function(fun = dt, args = list(df = 79)) +
+  stat_function(fun = dt, args = list(df = 79), 
+                geom = "area", xlim = c(t_obs , 4), 
+                fill = "purple4", alpha = 0.5) +
+  stat_function(fun = dt, args = list(df = 79), 
+                geom = "area", xlim = c(-t_obs , -4), 
+                fill = "purple4", alpha = 0.5) +
+  geom_vline(xintercept = t_obs, color = "purple4") +
+  geom_vline(xintercept = -t_obs, color = "purple4") +
+  geom_label(label = paste0("p-value = ", pval_t80),
+             x = 3.2, y = 0.4)+
+  theme_bw() +
+  labs(x = bquote(t["df=79"]), y = "density") + 
+  ylim(0, 0.4)
+
+
+# sample size 800
+
+pval_t800 = (pt(2.01, df = 799, lower.tail = F) * 2) %>% round(digits = 3)
+
+data.frame(t = seq(-4, 4, by = .01)) %>%
+  ggplot(aes(x = t)) +
+  stat_function(fun = dt, args = list(df = 799)) +
+  stat_function(fun = dt, args = list(df = 799), 
+                geom = "area", xlim = c(t_obs , 4), 
+                fill = "#000099", alpha = 0.5) +
+  stat_function(fun = dt, args = list(df = 799), 
+                geom = "area", xlim = c(-t_obs , -4), 
+                fill = "#000099", alpha = 0.5) +
+  geom_vline(xintercept = t_obs, color = "#000099") +
+  geom_vline(xintercept = -t_obs, color = "#000099") +
+  geom_label(label = paste0("p-value = ", pval_t800),
+             x = 3.2, y = 0.4)+
+  theme_bw() +
+  labs(x = bquote(t["df=799"]), y = "density") + 
+  ylim(0, 0.4)
+
+
+```
+
+

@@ -1,6 +1,6 @@
 ---
 title: "M3 Lab"
-author: "PUT YOUR NAME HERE"
+author: "Vanessa Hong"
 output:
   html_document:
     df_print: paged
@@ -24,7 +24,7 @@ try(knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file()))
 
 # Part 0
 
-__Please check the Canvas page for this assignment to see the specific questions (some are lengthy so I didn't include them in their entirety in this document)__
+**Please check the Canvas page for this assignment to see the specific questions (some are lengthy so I didn't include them in their entirety in this document)**
 
 ## R packages
 
@@ -39,63 +39,127 @@ library(tidyverse)
 
 # load in the data 
 # verbose = T option will print out the name of the data frame that the obejct was stored with. This is the name you should use (you should see an object with this name in your environment)
-load("path_to_data", verbose = T)
+load("../Data/acupuncture_data_reduced.RData", verbose = T)
 
 ```
 
 ## A. Make new factor variables
 
-
 ```{r}
-
 # create the new variables I asked you for in the data (and save them in the data frame)
 
+# One that calculates the change in headache severity between baseline and 3-month follow-up (pk2 - pk1). Note this is positive if headache severity increases and negative if headache severity decreases from baseline to 3-month follow-up. Call this variable headache_change
+data$headache_change <- data$pk2 - data$pk1
 
+# One that is a factor variable to label the acupuncture and control groups (0 = control, 1 = acupuncture treatment). Call this variable trt.
+data$trt <- factor(data$group, levels = c(0, 1), labels = c('control', 'acupuncture treatment'))
 
+# One that is a factor variable for sex (0 = male, 1 = female). Call this variable sex_f.
+data$sex_f <- factor(data$sex, levels = c(0, 1), labels = c('male', 'female'))
+
+head(data)
 ```
 
-# Part 1  
+# Part 1
 
-## A. Descriptives: Change in headache severity 
+## A. Descriptives: Change in headache severity
+
+Display an appropriate **numerical summary** of the **change in headache severity**. Create appropriate **visualizations** to display the distribution of the change in headache severity. Using these, **describe the distribution of the change in headache severity**. (Be sure to mention shape, center, and spread.)
 
 ```{r}
 # numerical and visual summaries here
 # we did things like this in lab 1, feel free to use that as a reference :)
 
+data %>%
+  summarise(mean = mean(headache_change, na.rm = TRUE),
+            median = median(headache_change, na.rm = TRUE),
+            min = min(headache_change, na.rm = TRUE),
+            max = max(headache_change, na.rm = TRUE), 
+            q25 = quantile(headache_change, 0.25, na.rm = TRUE),
+            q75 = quantile(headache_change,0.75, na.rm = TRUE),
+            sd = sd(headache_change, na.rm = TRUE)) %>%
+  mutate(IQR = q75 - q25)
+
+# histogram
+ggplot(data, aes(x = headache_change)) + 
+  geom_histogram(binwidth = 1) +
+  theme_bw()
+
+# Boxplot
+ggplot(data, aes(y = headache_change)) +
+  geom_boxplot() +
+  theme_minimal()
 ```
 
-Description of the variable:
+[Description of the variable]{.underline}: The change in headache severity is, on average, -4.712724. The histogram shows a relatively normal distribution centered around -4. It has a very wide spread, with two outliers– minimum being -55.5 and maximum being 50.75. By contrast, the IQR is not very wide, only 10.4375.
 
 ## B. Paired t test
 
+Perform a **paired t-test using an alpha = 0.01 significance level** to see if there was a change in headache severity or not (i.e., was the mean change zero?).
+
 ```{r}
 # check conditions of test
+  # CLT conditions
+  # assume random sample
+  # assume independent data 
+  # is large sample size 
 
 # run a paired t test to test if the change in headache severity was 0 overall
-
+# Perform a paired t-test on the headache_change variable
+t.test(data$headache_change, mu = 0, alternative = "two.sided", conf.level = 0.99)
 
 ```
 
-Write-up here (remember to include all of the components I asked you for here):
+[Write-up here (remember to include all of the components I asked you for here):]{.underline}
+
+-   [**Check the conditions** to be able to use a paired t-test]{.underline}: Each subject provides two variables (headache before and after treatment) so the data is paired. The data also follows a relatively normal distribution, the sample size is sufficient, and it can be assumed to be randomly sampled.
+
+-   [Descriptions of the null and alternative hypotheses in **words** (not symbols):]{.underline} Null: there is no change in headache severity before and after treatment. Alternative: there is a significant change in headache severity before and after treatment.
+
+-   [The value of the **test statistic** from this sample:]{.underline} -7.2599
+
+-   [The **p-value:**]{.underline} 2.877e-12
+
+-   [An **interpretation** of the **corresponding confidence interval**]{.underline}: The 99% confidence interval is (-6.397393 -3.032054), and as this value does not contain 0, it aligns with
+
+-   [Your **decision** about the null hypothesis (reject/fail to reject):]{.underline} Certainly, reject the null.
+
+-   [A **conclusion** about the hypothesis test]{.underline}: The
 
 ## C. Signed rank test
+
+Perform a **signed rank test using an alpha = 0.01 significance level** to see if there was a change in headache severity or not (i.e., was the median change zero?).
 
 ```{r}
 # conditions for a signed rank test
 
 # signed rank test implementation
-
+wilcox.test(data$pk1, data$pk2, paired = TRUE) 
 ```
 
-Write-up here:
+[Write-up here:]{.underline}
 
-## D. Summary of part 1 
+-   **Check the conditions** to be able to use a signed rank test
 
-Summary here:
+-   Descriptions of the null and alternative hypotheses in **words** (not symbols)
 
-# Part 2  
+-   The **p-value**
+
+-   Your **decision** about the null hypothesis (reject/fail to reject)
+
+-   A **conclusion** about the hypothesis test
+
+## D. Summary of part 1
+
+**Write a 1-3-sentence summary of your findings from part 1,** describing the increase/decrease in headache severity as if you were reporting these findings in a scientific paper. Also, comment on whether the findings change based on whether you use a parametric or nonparametric inference procedure.
+
+[Summary here]{.underline}:
+
+# Part 2
 
 ## A. Descriptives: Change in headache severity by treatment group
+
+Display an appropriate **numerical summary** of the change in headache severity separately for the acupuncture treatment and control groups. Create appropriate **visualizations** to display the distribution of the change in headache severity separately for the acupuncture treatment and control groups. Using these, **compare the distributions of the change in headache severity for the acupuncture treatment and control groups**. (At a minimum compare the centers of these distributions.) 
 
 ```{r}
 
@@ -103,9 +167,21 @@ Summary here:
 
 ```
 
-Description of the variable:
+[Description of the variable]{.underline}:
 
 ## B. Descriptives: Sex and age distributions by treatment group
+
+Display an **appropriate numerical summary of age and sex** (make a new factor variable for sex) separately for the acupuncture treatment and control groups. Create appropriate **visualizations** to display the distribution of age and sex separately for the acupuncture treatment and control groups. (1pt)
+
+-   <div>
+
+    -   In case the wording isn't clear: In this question, please make
+
+        -   a numerical summary and visualization comparing the distribution of age in the treatment vs control group, and
+
+        -   a numerical summary and visualization comparing the distribution of sex in the treatment vs control group,
+
+    </div>
 
 ```{r}
 # numerical and visual summaries here for sex 
@@ -114,14 +190,17 @@ Description of the variable:
 # numerical and visual summaries here for age
 ```
 
-Description here:
+[Description here]{.underline}:
 
 ## C. Comment on 2B findings
 
-Comments about differences and how study design may have contributed here/possible impacts on next section:
+**Comment on how the study design may have contributed to the results** in part 2B above. In the next section, we will test for differences in change in headache severity between the treatment and control groups. **How might your findings in 2B impact the conclusions** you are able to draw in the next section? 
 
+[Comments about differences and how study design may have contributed here/possible impacts on next section]{.underline}:
 
 ## D. Two-sample t test
+
+Perform a **two-sample t-test** (not assuming equal variances) using an **alpha = 0.05 significance level** to see if the change in headache severity differed by treatment group.
 
 ```{r}
 
@@ -131,10 +210,25 @@ Comments about differences and how study design may have contributed here/possib
 
 ```
 
-Write-up here:
+[Write-up here]{.underline}:
 
+-   **Check the conditions** to be able to use a two-sample t-test
+
+-   Descriptions of the null and alternative hypotheses in **words** (not symbols)
+
+-   The value of the **test statistic** from this sample
+
+-   The **p-value**
+
+-   An **interpretation** of the corresponding **confidence interval**
+
+-   Your **decision** about the null hypothesis (reject/fail to reject)
+
+-   A **conclusion** about the hypothesis test
 
 ## E. Wilcoxon rank sum test
+
+Perform a **rank sum test using an alpha = 0.05 significance level** to see if the change in headache severity differed by treatment group.
 
 ```{r}
 
@@ -144,12 +238,23 @@ Write-up here:
 
 ```
 
-Write-up here:
+[Write-up here]{.underline}:
 
+-   **Descriptions** of the null and alternative hypotheses in **words** (not symbols)
+
+-   **Check the conditions** to be able to use a rank sum test
+
+-   The **p-value**
+
+-   Your **decision** about the null hypothesis (reject/fail to reject)
+
+-   A **conclusion** about the hypothesis test
 
 ## F. Summary of part 2
 
-Summary here:
+Write a **1-3-sentence summary of your findings from part 2** describing how the increase/decrease in headache severity differed between the acupuncture treatment and control groups, as if you were reporting these findings in a scientific paper. Also, comment on whether the findings change based on whether you use a parametric or nonparametric inference procedure.
+
+[Summary here]{.underline}:
 
 # Session Information
 

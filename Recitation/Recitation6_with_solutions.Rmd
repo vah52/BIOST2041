@@ -1,0 +1,397 @@
+---
+title: "Recitation 6: Two-sample t-tests"
+subtitle: "Solutions"
+author: "Haley Grant"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    number_sections: no
+    toc_depth: '4'
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+# Set-up
+
+## Load packages
+
+```{r}
+library(tidyverse)
+library(readxl)
+
+```
+
+# Analysis
+
+## Import Data
+
+```{r}
+# import data
+liver <- read_excel("Data/LAFBP_diagnosis.xlsx")
+
+
+# make separate data frames for each group (to make things easier later)
+liver.hc = liver %>% filter(Group == "Control")
+liver.masld = liver %>% filter(Group != "Control")
+
+```
+
+## Question of Interest
+
+These data were collected to test if Liver Type Fatty Acid Binding Protein (L-FABP) concentration can be used to diagnose Metabolic dysfunction-associated steatotic liver disease (MASLD) in a pediatric population. The data contain measurements from pediatric patients with MASLD and a set of healthy controls.
+
+## Make a plot
+
+**Make a plot to visualize the distribution of `L-FABP` in each group to compare the distributions.**
+
+```{r}
+# Visualization
+liver %>% 
+  ggplot(aes(x = Group, y = `L-FABP`)) +
+  geom_boxplot(aes(color = Group)) +  
+  theme_bw()
+
+```
+
+# Two-Sample t-test
+
+### Null and alternative hypotheses
+
+The null and alternative hypotheses for this test are:
+
+$$H_0: \mu_{MASLD} - \mu_{HC} = 0$$ $$H_A: \mu_{MASLD} - \mu_{HC} \neq 0$$
+
+Where $\mu_{MASLD}$ is the average L-FABP in the MASLD group and $- \mu_{HC}$ is the average L-FABP in the health controls.
+
+**Interpret the null and alternative hypotheses in words:**
+
+Null: There is no difference in the average L-FABP concentration between the two groups (control vs MASLD).
+
+Alternative: There is a difference in the average L-FABP concentration between the two groups (control vs MASLD).
+
+### Check Conditions
+
+**Verify that the conditions for the two-sample t-test are satisfied before proceeding.**
+
+Conditions:
+
+-   n (sample size) in each group \> 30 or L-FABP is normally distributed in the population within each group
+-   two independent groups
+-   random samples from populations
+
+```{r}
+# check assumptions
+# histogram to check if distribution looks unimodal/symmetric/bell shaped in each group
+liver %>%
+  ggplot(aes(x = `L-FABP`)) + 
+  geom_histogram() + 
+  facet_wrap(~ Group) + 
+  theme_bw()
+
+# check normality with a QQ plot
+liver %>%
+  ggplot(aes(sample = `L-FABP`)) + 
+  geom_qq() +
+  geom_qq_line() + 
+  facet_wrap(~ Group) + 
+  theme_bw() = 
+  labs(x = "Theoretical Normal Quantiles", 
+       y = "Observed Quantiles")
+
+# checking sample size just in case 
+xtabs(~ Group, data = liver)
+
+```
+
+It looks like we're good to go!
+
+### Sample Mean and Variances
+
+**Use this section to calculate the sample size, observed sample mean, and observed sample variance for each group.**
+
+```{r}
+# sample sizes
+n_masld  = nrow(liver.masld)
+n_hc  = nrow(liver.hc)
+
+# sample means
+xbar_masld = mean(liver.masld$`L-FABP`)
+xbar_hc = mean(liver.hc$`L-FABP`)
+
+# print
+xbar_masld ; xbar_hc
+# 8.02 ; 3.88
+
+# sample variance
+s2_masld = var(liver.masld$`L-FABP`)
+s2_hc = var(liver.hc$`L-FABP`)
+
+# print
+s2_masld ; s2_hc
+# 13.88 ; 2.01
+
+
+```
+
+The sample mean is higher in the group with MASLD than the control group(8.02 vs 3.88). The sample variance is also much larger in the MASLD group (13.88 vs 2.01).
+
+### Test statistic
+
+**Use this section to calculate the test statistic for the two-sample t-test**
+
+```{r}
+
+# test statistic for the two-sample t test
+# recall the form of a t test statistic is (estimator - null value)/standard error
+
+t_obs = (xbar_masld - xbar_hc - 0 ) / sqrt((s2_masld / n_masld) + (s2_hc / n_hc) )
+t_obs
+
+```
+
+The test statistic is 10.38. This means the observed difference in sample means ($\bar{x}_{MASLD}-\bar{x}_{Control}$) is 10.38 standard errors away from the null value of 0. Here, standard errors refer to the standard deviation of the sampling distribution of the difference in sample means: $\bar{X}_{MASLD}-\bar{X}_{Control}\sim N\bigg(\mu_{MASLD} - \mu_{Control}, \Big(\sqrt{\frac{\sigma^2_{MASLD}}{n_{MASLD}} + \frac{\sigma^2_{Control}}{n_{Control}}}\Big)^2\bigg)$
+
+### Distribution under the null
+
+Under the null hypothesis, we would expect the test statistic to follow a $t$ distribution with $n-1$ degrees of freedom. Here we're going to simulate a $t$ distribution to get a sense of what that should look like. I'm going to simulate 20,000 draws from a t distribution and make a plot to see what it looks like.
+
+These are the values of the test statistic I'm expecting to see if the null hypothesis is true:
+
+```{r}
+# -----------------------------------------------
+# code to calculate degrees of freedom
+n_hc = nrow(liver.hc)
+n_masld = nrow(liver.masld)
+A = (s2_masld) / n_masld
+B = (s2_hc) / n_hc
+
+# DF formula (you don't need to know this)
+df_star = (A + B)^2 / (A^2 / (n_masld - 1) + B^2 / (n_hc - 1))
+# -----------------------------------------------
+
+
+set.seed(123)
+# simulate a t distribution with Sattwethwaite degrees of freedom
+null_dist = data.frame(t = rt(n = 20000, df = df_star))
+
+null_dist %>%
+  ggplot(aes(x = t)) + 
+  geom_histogram(bins = 50, fill = "lightgreen",color = "black" ) + 
+  theme_bw() + 
+  labs(title = "Theoretical Distribution under the Null",
+       x = paste0("T distribution with ", round(df_star, digits = 2), " degrees of freedom"))
+
+
+```
+
+### Compare our test statistic
+
+Here I've added an extra line of code to show where our test statistic falls compared to the values drawn from the theoretical null distribution of the test statistic:
+
+```{r}
+# show our test statistic on plot
+null_dist %>%
+  ggplot(aes(x = t)) + 
+  geom_histogram(bins = 50, fill = "lightgreen",color = "black" ) + 
+  theme_bw() + 
+  labs(title = "Theoretical Distribution under the Null",
+       x = paste0("T distribution with ", round(df_star), " degrees of freedom")) + 
+  geom_vline(xintercept = t_obs, color = "darkgreen", linewidth = 1.5)
+
+
+```
+
+Notice that the test statistics we observed (10.38) is very extreme relative to this distribution--it's very unlikely we would see a test statistic as large as this if the null hypothesis had been true.
+
+### Visualizing p-value
+
+In this section showing a visual representation of the p-value using our simulated null distribution.
+
+Here I'm coloring the null distribution based on if the value is more extreme (further from 0) than our observed test statistic:
+
+```{r}
+# visualize p-value
+null_dist %>%
+  bind_rows(data.frame(t = 10.4)) %>%
+  mutate(extreme = case_when(abs(t)>=abs(t_obs) ~ "As or more extreme",
+                             abs(t)<abs(t_obs) ~ "Not as extreme") %>%
+           factor(levels = c("As or more extreme","Not as extreme"))) %>%
+   ggplot(aes(x = t, fill = extreme)) + 
+  geom_histogram(bins = 50,color = "black" ) + 
+  theme_bw() + 
+  scale_fill_manual(values = c("As or more extreme" = "firebrick2", 
+               "Not as extreme" = "lightgreen"),
+    drop = FALSE ) + 
+  labs(title = "Theoretical Distribution under the Null",
+       x = paste0("T distribution with ", round(df_star), " degrees of freedom"),
+       fill = element_blank()) + 
+  geom_vline(xintercept = t_obs, color = "darkgreen", linewidth = 1.5) 
+ 
+
+
+```
+
+As we can see, essentially 0% of the null distribution is as extreme as our test statistic.
+
+## Two-Sample t-test
+
+**Use the t.test() function to run the two-sample t-test to test if difference in average L-FABP between MASLD patients and healthy controls is statistically significantly different from 0.**
+
+```{r}
+# t test
+t.test(`L-FABP` ~ Group, data = liver)
+
+# alternative--equivalent but will give case - control instead of control - case (in numerator of test stat)
+t.test(x = liver.masld$`L-FABP`, y = liver.hc$`L-FABP`)
+
+```
+
+### Test Statistic
+
+**Can you find the test statistic in the output of the t.test() function? Does it match with the test statistic that you found above?**
+
+Test statistic from the output: 10.38 (or -10.38, but this doesn't matter since we're doing a two-sided test)
+
+Your test statistic that you calculated above: 10.38
+
+### p-value
+
+**What is the p-value for this test? Interpret the meaning of the p-value here:**
+
+p-value: $<2.2\times 10^{-16}$
+
+Want to see the actual p-value?
+
+```{r}
+pt(abs(t_obs), df = df_star, lower.tail = F) * 2
+```
+
+Interpretation: If the null had been true, there is a near 0 ($1.1 \times 10^{-18}$) probability of observing a sample with a difference in sample means as large as what we saw in our sample.
+
+### Confidence interval
+
+**What is the 95% confidence interval for the difference in average L-FABP comparing MASLD patients to health controls? Interpret the confidence interval.**
+
+Confidence interval: (3.35, 4.93) (or -(4.93, -3.35) if you flip the order of the difference)
+
+Interpretation: We are 95% confident that the true difference in mean L-FABP ($\mu_{MASLD}-\mu_{Controls}$) is in the interval 3.35 to 4.93 (with the mean in the MASLD group being the larger one). Intervals constructed in this way have a 95% chance of containing the true (population) mean difference, so while we don't know if ours is one of those 95%, we can be 95% confident that it is :)
+
+### Conclusion of test
+
+**What is the conclusion of this test? Do we have sufficient evidence to conclude that there is a difference in average L-FABP between the two groups?**
+
+Conclusion: Reject the null! We conclude that we do have sufficient evidence of a difference in mean L-FABP concentration between pediatric patients with MASLD and controls. Seems like this could be a good candidate biomarker for diagnosing MASLD!
+
+# Simulation
+
+Here I'm simulating three different scenarios to illustrate the concept of type I errors, type II errors, and power.
+
+I'm simulating L-FABP data based on our observed data under three scenarios:
+
+1.  When the null is true (no difference on average)
+2.  When the alternative is true; and the difference in averages is 1
+3.  When the alternative is true; and the difference in averages is 2
+
+In each scenario, I'm simulating 10000 samples of size 99 for controls and 100 for MASLD :
+
+```{r}
+set.seed(246)
+
+null_df = data.frame(i = 1:10000, diff = NA, se = NA)
+alt1_df = data.frame(i = 1:10000, diff = NA, se = NA)
+alt2_df = data.frame(i = 1:10000, diff = NA, se = NA)
+
+for(i in 1:10000){
+# null
+masld = rnorm(n = 100, mean = 8, sd = sqrt(s2_masld)) 
+null_hc =  rnorm(n = 99, mean = 8, sd = sqrt(s2_hc))
+alt1_hc =  rnorm(n = 99, mean = 7, sd = sqrt(s2_hc))
+alt2_hc =  rnorm(n = 99, mean = 6, sd = sqrt(s2_hc))
+
+null_mean = mean(masld) - mean(null_hc)
+alt1_mean = mean(masld) - mean(alt1_hc)
+alt2_mean = mean(masld) - mean(alt2_hc)
+
+null_se = sqrt(var(masld)/100 + var(null_hc)/99)
+alt1_se = sqrt(var(masld)/100 + var(alt1_hc)/99)
+alt2_se = sqrt(var(masld)/100 + var(alt2_hc)/99)
+
+
+null_df[i,] = c(i, null_mean, null_se)
+alt1_df[i,] = c(i, alt1_mean, alt1_se)
+alt2_df[i,] = c(i, alt2_mean, alt2_se)
+}
+
+
+df = bind_rows(null_df %>% mutate(scenario = "Null"), 
+               alt1_df %>% mutate(scenario = "Alternative 1")) %>%
+  bind_rows(alt2_df %>% mutate(scenario = "Alternative 2")) %>%
+  mutate(tobs = diff / se)
+
+
+# histogram of sample means for 3 scenarios
+df %>%
+  ggplot(aes(x = diff, fill = scenario)) + 
+  geom_histogram(color = "black", bins = 50, alpha = 0.5, position = "identity")+ 
+  theme_bw() +
+  labs(x = "Sample Mean") 
+
+
+# histogram of t test statistics for 3 scenarios
+df %>%
+  ggplot(aes(x = tobs, fill = scenario)) + 
+  geom_histogram(color = "black", bins = 50, alpha = 0.5, position = "identity")+ 
+  theme_bw() +
+  labs(x = "Test Statistic") + 
+  geom_segment( y= 0, yend = 0, x = qt(0.975, df= df_star), xend = Inf, color = "red") +
+  geom_segment( y= 0, yend = 0, x = qt(0.025, df= df_star), xend = -Inf, color = "red") 
+
+
+```
+
+## Power
+
+```{r}
+
+# cutoffs of rejection region
+lower = qt(0.025, df = df_star)
+upper = qt(0.975, df = df_star)
+```
+
+There should be a 5% chance of getting a test statistic in the rejection region under the null, because we chose and alpha of 0.05 (i.e. the rejection region takes up 5% of our null distribution).
+
+```{r}
+null_df %>% 
+  mutate(tstat = diff / se, # calculate test stat
+         in_rejection_region = (tstat < lower | tstat > upper)) %>% # check if in RR
+  summarise(mean(in_rejection_region)) # proportion in RR
+  
+```
+
+This is the power of the test if the true difference in means is 1. I'm estimating this with the proportion of the alternative distribution that falls within the rejection region from the null distribution (i.e. P(reject \| null is false) = P(being in rejection region \| alternative is true)):
+
+```{r}
+alt1_df %>% 
+  mutate(tstat = diff / se, # calculate test stat
+         in_rejection_region = (tstat < lower | tstat > upper)) %>% # check if in RR
+  summarise(mean(in_rejection_region)) # proportion in RR
+```
+
+This is the power of the test if the true difference in means is 2. It should be higher than the power for a true difference of 1 since in this scenario the truth is farther from the null, i.e. less overlap in the null and true (alternative) distributions:
+
+```{r}
+alt2_df %>% 
+  mutate(tstat = diff / se, # calculate test stat
+         in_rejection_region = (tstat < lower | tstat > upper)) %>% # check if in RR
+  summarise(mean(in_rejection_region)) # proportion in RR
+
+```

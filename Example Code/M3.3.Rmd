@@ -1,0 +1,480 @@
+---
+title: "M3 Lecture 3: Two sample inference (paired data)"
+author: "Haley Grant"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    number_sections: true
+    toc_depth: '3'
+    code_folding: show
+---
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+require(knitr)
+try(knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file()))
+
+try(knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file()))
+
+
+```
+
+# Set Up
+
+## R packages
+
+```{r}
+
+library(tidyverse)
+
+```
+
+## Data Import
+
+```{r}
+# load RData file
+
+# the name will be "data"
+load("Data/acupuncture_data_reduced.RData", verbose = T)
+
+#print dataset
+data
+```
+
+# Two sample inference for paired observations
+
+## Paired observations
+
+Here I'm making a new variable for the change in headache frequency from baseline to three months (3 months - baseline) and plotting the distribution of frequency by group and timepoint.
+
+```{r}
+data = data %>% 
+  mutate(group_f = factor(group, levels = c(0,1), labels = c("control","treatment")),
+         change_f2_f1 = f2 - f1)
+  
+# boxplot of frequency by time and treatment group
+data %>%
+  dplyr::select(group_f, f1, f2) %>%
+  pivot_longer(2:3, names_to = "time", values_to = "Headache Frequency")%>%
+  mutate(time = case_when(time=="f1" ~ "Baseline",
+                          time=="f2" ~ "3 Months" )%>%
+           factor(levels = c("Baseline","3 Months")))%>%
+  ggplot(aes(x = time, y = `Headache Frequency`)) +
+  geom_boxplot() + 
+  theme_bw() + 
+  geom_jitter(aes(color = group_f), alpha = 0.5, size = 0.75, width = .25) + 
+  facet_wrap(.~ group_f) + 
+  labs(x = element_blank()) + 
+  theme(legend.position = "none")
+  
+
+```
+
+Here I'm splitting the data by treatment group to make subsets for each treatment group to make the code easier later.
+
+```{r}
+# split into treated and control data frames (separate df for each)
+data.trt = data %>%
+  filter(group_f == "treatment") %>% 
+  drop_na(change_f2_f1) # drop rows with missingness in change_f2_f1 (there aren't any but if there were I would want to do this to make sure I know my actual sample size for my t tests)
+
+data.ctrl = data %>% 
+  filter(group_f == "control") %>% 
+  drop_na(change_f2_f1) # drop rows with missingness in change_f2_f1 (there aren't any but if there were I would want to do this to make sure I know my actual sample size for my t tests)
+
+```
+
+This code plots the change in headache frequency two different ways (connected points across time or boxplots of change in frequency)
+
+```{r}
+# paired plot (points and connected lines)
+data %>%
+  select(id, group_f, f1, f2) %>%
+  pivot_longer(3:4, names_to = "time", values_to = "Headache Frequency")%>%
+  mutate(time = case_when(time=="f1" ~ "Baseline",
+                          time=="f2" ~ "3 Months" )%>%
+           factor(levels = c("Baseline","3 Months")))%>%
+  ggplot(aes(x = time, y = `Headache Frequency`,color = group_f)) +
+  geom_line(aes(group = id), alpha = 0.5) + 
+  theme_bw() + 
+  geom_point() + 
+  facet_wrap(.~ group_f) + 
+  labs(x = element_blank()) + 
+  theme(legend.position = "none")
+
+# plot change in frequency by group
+data %>%
+  ggplot(aes(x = group_f, y = change_f2_f1,color =group_f)) +
+  geom_boxplot() + 
+  theme_bw() + 
+  geom_jitter(aes(color = group_f), alpha = 0.5, size = 0.75, width = .25) +
+  labs(x = element_blank(), y = "Change from Baseline to 3 Months",
+       title = "Change in Headache Frequency") + 
+  theme(legend.position = "none")
+  
+```
+
+Here I'm calculating the average and standard deviation of the change in headache frequency:
+
+```{r}
+# change summary stats by group
+data %>%
+  group_by(group_f) %>%
+  summarise(n = n(), 
+            mean_change = mean(change_f2_f1),
+            sd_change = sd(change_f2_f1)) %>%
+  mutate(t = mean_change / (sd_change / sqrt(n)))
+
+```
+
+## Paired T-test
+
+### Treatment group
+
+#### Conditions
+
+Check conditions for test (same as 1-sample t-test conditions)
+
+```{r}
+
+# CLT conditions
+# assume random sample
+# assume independent data 
+
+data.trt %>% 
+  ggplot(aes(sample = change_f2_f1)) + 
+  theme_bw() + 
+  stat_qq() + 
+  stat_qq_line() + 
+  labs(x = "Theoretical Normal Quantiles",
+       y = "Observed Quantiles (change in headache frequency)")
+
+# data don't look perfectly normal, let's check the sample size
+length(data.trt$change_f2_f1)
+# n = 205 so we can probably apply CLT
+
+```
+
+#### Test by hand
+
+Here I'm calculating the test statistic, p-value, and confidence interval by hand:
+
+```{r}
+# alpha level
+alph = 0.05
+
+
+# treatment group
+# necessary statistics
+diff_trt = mean(data.trt$change_f2_f1)
+sd_trt = sd(data.trt$change_f2_f1)
+n_trt = nrow(data.trt)
+
+# test statistic
+t_trt = diff_trt / (sd_trt / sqrt(n_trt))
+
+# p-value
+pt(-abs(t_trt), df = n_trt - 1) + pt(abs(t_trt), df = n_trt - 1, lower.tail = F)
+# equivalently
+2 * pt(abs(t_trt), df = n_trt - 1, lower.tail = F)
+
+# rejection region
+trt_cutoffs = qt(c(alph / 2, 1 - alph / 2), df = n_trt - 1)
+trt_cutoffs
+
+# plot rejection region
+data.frame(t = seq(-11, 4, by = .01)) %>%
+  ggplot(aes(x = t)) +
+  stat_function(fun = dt, args = list(df = n_trt - 1)) +
+  stat_function(fun = dt, args = list(df = n_trt - 1), 
+                geom = "area", xlim = c(trt_cutoffs[2], 4), 
+                fill = "red", alpha = 0.5) +
+   stat_function(fun = dt, args = list(df=n_trt-1), 
+                geom = "area", xlim = c(trt_cutoffs[1], -4), 
+                fill = "red", alpha = 0.5) +
+  geom_vline(xintercept = trt_cutoffs[1], color = "red") +
+  geom_vline(xintercept = trt_cutoffs[2], color = "red") +
+  geom_vline(xintercept = t_trt, color = "blue") +
+  theme_bw() +
+  labs(x = bquote(t['df='~.(n_trt-1)]), y = "density")
+
+
+# two-sided 95% confidence interval
+diff_trt + qt(c(alph / 2, 1 - alph / 2), df = n_trt - 1) * sd_trt / sqrt(n_trt)
+```
+
+#### Test with `t.test()` function
+
+We can get the same results with the `t.test()` function:
+
+```{r}
+# implementation using t.test() function
+t.test(data.trt$change_f2_f1)
+
+# another option:
+t.test(x = data.trt$f2, y = data.trt$f1, paired = T)
+
+```
+
+### Control Group
+
+#### Conditions
+
+Check conditions for test (same as 1-sample t-test conditions)
+
+```{r}
+
+# CLT conditions
+# assume random sample
+# assume independent data 
+
+data.ctrl %>% 
+  ggplot(aes(sample = change_f2_f1)) + 
+  theme_bw() + 
+  stat_qq() + 
+  stat_qq_line() + 
+  labs(x = "Theoretical Normal Quantiles",
+       y = "Observed Quantiles (change in headache frequency)")
+
+# data don't look normal (heavy tails), let's check the sample size
+length(data.ctrl$change_f2_f1)
+# n = 196 so we can probably apply CLT
+```
+
+#### Test by hand
+
+Here I'm calculating the test statistic, p-value, and confidence interval by hand:
+
+```{r}
+# control group
+# necessary statistics
+diff_ctrl = mean(data.ctrl$change_f2_f1)
+sd_ctrl = sd(data.ctrl$change_f2_f1)
+n_ctrl = nrow(data.ctrl)
+
+# test statistic
+t_ctrl = diff_ctrl / (sd_ctrl / sqrt(n_ctrl))
+
+# p-value
+pt(-abs(t_ctrl), df = n_ctrl - 1) + pt(abs(t_ctrl), df = n_ctrl - 1, lower.tail = F)
+# equivalently
+2 * pt(abs(t_ctrl), df = n_ctrl - 1, lower.tail = F)
+
+# rejection region
+ctrl_cutoffs = qt(c(alph / 2, 1 - alph / 2), df = n_ctrl - 1)
+ctrl_cutoffs
+
+# plot rejection region
+data.frame(t = seq(-11,4, by = .01)) %>%
+  ggplot(aes(x=t)) +
+  stat_function(fun = dt, args = list(df=n_ctrl-1)) +
+  stat_function(fun = dt, args = list(df=n_ctrl-1), 
+                geom = "area", xlim = c(ctrl_cutoffs[2], 4), 
+                fill = "red", alpha = 0.5) +
+   stat_function(fun = dt, args = list(df=n_ctrl-1), 
+                geom = "area", xlim = c(ctrl_cutoffs[1], -4), 
+                fill = "red", alpha = 0.5) +
+  geom_vline(xintercept = ctrl_cutoffs[1], color = "red") +
+  geom_vline(xintercept = ctrl_cutoffs[2], color = "red") +
+  geom_vline(xintercept = t_ctrl, color = "blue") +
+  theme_bw() +
+  labs(x = bquote(t['df='~.(n_ctrl - 1)]),y="density")
+
+# two-sided 95% confidence interval
+diff_ctrl + qt(c(alph / 2, 1 - alph / 2), df = n_ctrl - 1) * sd_ctrl / sqrt(n_ctrl)
+
+```
+
+#### Test with `t.test()` function
+
+We can get the same results with the `t.test()` function:
+
+```{r}
+# implementation using t.test() function
+t.test(data.ctrl$change_f2_f1)
+
+# another option:
+t.test(x = data.ctrl$f2, y = data.ctrl$f1, paired = T)
+
+```
+
+## What if we didn't run paired tests?
+
+```{r}
+
+# treatment group: correct test
+t.test(x = data.trt$f2, y = data.trt$f1, paired = T)
+
+# treatment group: INCORRECT test
+t.test(x = data.trt$f2, y = data.trt$f1, paired = F)
+
+# control group: correct test
+t.test(x = data.ctrl$f2, y = data.ctrl$f1, paired = T)
+
+# control group: INCORRECT test
+t.test(x = data.ctrl$f2, y = data.ctrl$f1, paired = F)
+
+# numerator is the same
+# control group
+mean(data.ctrl$f2) - mean(data.ctrl$f1)
+mean(data.ctrl$change_f2_f1)
+
+# trt group
+mean(data.trt$f2) - mean(data.trt$f1)
+mean(data.trt$change_f2_f1)
+
+```
+
+# Power and sample size for paired t test
+
+This is the same as for a 1-sample t-test, where the variable of interest is the difference in the paired variables
+
+```{r}
+# delta is muA - mu0
+# sd comes from sample standard deviation (have to assume some sd)
+
+# n needed to get 80% power
+power.t.test(delta = 2.18, 
+             sd = 6.7, 
+             sig.level = 0.05,
+             power = 0.8, 
+             type = "one.sample",
+             alternative = "one.sided")
+
+se = sig_est/sqrt(53)
+
+# plot power
+data.frame(x = seq(10, 20, by = .01)) %>%
+  ggplot(aes(x = x)) +
+  stat_function(fun = dnorm, args = list(mean = 14, sd = se),
+                color = "#00BFC4") +
+  stat_function(fun = dnorm, args = list(mean = 16.18 ,sd = se),
+                color = "#F8766D") +
+  theme_bw() + 
+  stat_function(fun = dnorm, args = list(mean = 14, sd = se), 
+                geom = "area", xlim = c(qnorm(0.95, mean = 14, sd = se), 20), 
+                fill = "#00BFC4", alpha = 0.5)+
+  stat_function(fun = dnorm, args = list(mean = 16.18, sd = se), 
+                geom = "area", xlim = c(qnorm(0.95, mean = 14, sd = se), 20), 
+                fill = "#F8766D", alpha = 0.5) +
+  geom_vline(xintercept = qnorm(0.95, mean = 14, sd = se), 
+             color = "#00BFC4", linetype = 2) +
+  labs(x = element_blank(), y = element_blank())
+
+# power for sample of size 100
+power.t.test(n=100, 
+             delta = 2.18, 
+             sd = 6.7, 
+             sig.level = 0.05,
+             type = "one.sample",
+             alternative = "one.sided")
+
+
+
+se = sig_est / sqrt(100)
+
+# plot power
+data.frame(x = seq(10, 20, by = .01)) %>%
+  ggplot(aes(x = x)) +
+  stat_function(fun = dnorm, args = list(mean = 14, sd = se),
+                color = "#00BFC4") +
+  stat_function(fun = dnorm, args = list(mean = 16.18 ,sd = se),
+                color = "#F8766D") +
+  theme_bw() + 
+  stat_function(fun = dnorm, args = list(mean = 14, sd = se), 
+                geom = "area", xlim = c(qnorm(0.95, mean = 14, sd = se), 20), 
+                fill = "#00BFC4", alpha = 0.5)+
+  stat_function(fun = dnorm, args = list(mean = 16.18, sd = se), 
+                geom = "area", xlim = c(qnorm(0.95, mean = 14, sd = se), 20), 
+                fill = "#F8766D", alpha = 0.5) +
+  geom_vline(xintercept = qnorm(0.95, mean = 14, sd = se), 
+             color = "#00BFC4", linetype = 2)+
+  labs(x = element_blank(), y = element_blank())
+
+
+
+# power for sample of size 100; two-sided test
+power.t.test(n = 100, 
+             delta = 2.18, 
+             sd = 6.7, 
+             sig.level = 0.05,
+             type = "one.sample",
+             alternative = "two.sided")
+
+# power for sample of size 100; larger effect size
+power.t.test(n = 100, 
+             delta = 4, 
+             sd = 6.7, 
+             sig.level = 0.05,
+             type = "one.sample",
+             alternative = "one.sided")
+
+```
+
+# Two - Sample t-test
+
+Now I want to compare the change from baseline to 3 months between groups. To do this, I can do a two-sample t-test on the differences!
+
+```{r}
+# two-sample t-test to compare change in frequency between groups
+t.test(change_f2_f1 ~ group_f, data = data)
+
+# alternative
+t.test(x = data.trt$change_f2_f1, y = data.ctrl$change_f2_f1)
+```
+
+We see that the estimated difference in average change in headache frequency from baseline to 3 months, comparing treatment to control, is around -0.3 (there was a decrease in both groups, but the decrease was slightly larger in the treatment group). This difference was not statistically significant. We get a p-value of 0.685 and a 95% confidence interval for the difference in average change from -1.83 days to 1.21 days, which contains 0. We do not have sufficient evidence to claim that the change in headache frequency from baseline to 3 months differs between the two treatment groups.
+
+```{r}
+# plot confidence interval for the difference
+ci = t.test(x = data.trt$change_f2_f1, y = data.ctrl$change_f2_f1)$conf.int
+
+data.frame(difference = seq(ci[1] - 0.5, ci[2] + 0.5, by = 0.1),
+       group = "difference") %>%
+  ggplot(aes(y = difference, x = group)) + 
+  geom_errorbar(ymin = ci[1], ymax = ci[2], color = "plum") +
+  geom_point(data = data.frame( difference = mean(c(ci[1],ci[2])), group = "difference"), color = "plum") + 
+  theme_bw() + 
+  labs(x = element_blank())
+
+```
+
+```{r}
+set.seed(123)
+results = data.frame(null_overlap = rep(NA, 10000), null_diff = rep(NA, 10000),
+                     alt_overlap = rep(NA, 10000), alt_diff = rep(NA, 10000))
+for(i in 1:10000){
+  group1 = rnorm(n = 70, mean = 10, sd = 2)
+  group2_null = rnorm(n = 70, mean = 10, sd = 2)
+  group2_alt = rnorm(n = 70, mean = 9, sd = 2)
+  
+  ci1 = t.test(group1)$conf.int
+  ci2_null = t.test(group2_null)$conf.int
+  ci2_alt = t.test(group2_alt)$conf.int
+  ci_diff_null = t.test(group1, group2_null)$conf.int
+  ci_diff_alt = t.test(group1, group2_alt)$conf.int
+  
+  no = ci1[2]>=ci2_null[1] & ci2_null[2]>=ci1[2] | ci2_null[2]>=ci1[1] & ci1[2]>=ci2_null[2] 
+  
+  ao = ci1[2]>=ci2_alt[1] & ci2_alt[2]>=ci1[2] | ci2_alt[2]>=ci1[1] & ci1[2]>=ci2_alt[2] 
+  
+  nd = ci_diff_null[1] <=0 & ci_diff_null[2] >=0
+  ad = ci_diff_alt[1] <=0 & ci_diff_alt[2] >=0
+  results[i,] = c(null_overlap = !no, null_diff = !nd, 
+                          alt_overlap = !ao, alt_diff = !ad)
+  
+}
+
+results %>%
+  pivot_longer(1:4, names_to = "scenario", values_to = "reject") %>%
+  separate(scenario, into = c("truth","method"), sep = "_") %>%
+  mutate(truth = ifelse(truth == "null", "Null is true", "Alternative is true"),
+         method = ifelse(method == "diff", "Test for difference", "Overlap of CIs")) %>%
+  group_by(truth, method) %>%
+  summarise(p_reject = mean(reject))
+  
+
+```

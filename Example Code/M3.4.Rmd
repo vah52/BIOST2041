@@ -1,0 +1,186 @@
+---
+title: "M3 Lecture 4: Nonparametric Methods"
+author: "Haley Grant"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    number_sections: true
+    toc_depth: '3'
+    code_folding: show
+---
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+require(knitr)
+try(knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file()))
+
+try(knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file()))
+
+
+```
+
+# R packages
+
+```{r}
+
+library(tidyverse)
+
+```
+
+# Data
+
+```{r}
+
+ref_genes = read_csv("Data/cancer_refgenes_plosone.csv")
+
+
+```
+
+## One sample inference
+
+## Paired Data
+
+B2M vs RPL37A
+
+```{r}
+
+ref_genes %>%
+  filter(cancer_status == "control") %>%
+  select(B2M, RPL37A) %>%
+  pivot_longer(1:2, names_to = "gene", values_to = "Cq") %>%
+  ggplot(aes(x = gene, y = Cq)) + 
+  geom_boxplot() + 
+  theme_bw()
+
+ref_genes %>%
+  filter(cancer_status == "control") %>%
+  select(B2M, RPL37A) %>%
+  rownames_to_column(var = "id") %>%
+  pivot_longer(2:3, names_to = "gene", values_to = "Cq") %>%
+  ggplot(aes(x = gene, y = Cq)) +
+  geom_line(aes(group = id), alpha = 0.5) + 
+  theme_bw() + 
+  geom_point()
+
+
+# make difference var
+ref_genes = ref_genes %>%
+  mutate(B2M_RPL37A = B2M - RPL37A)
+
+# make control group data frame
+ref_genes_ctrl = ref_genes %>%  filter(cancer_status == "control")
+
+
+ref_genes_ctrl %>%
+  ggplot(aes(y = B2M_RPL37A)) + 
+  geom_boxplot() + 
+  theme_classic() + 
+  labs(y = "B2M - RPL37A")
+
+ref_genes_ctrl %>%
+  ggplot(aes(x = B2M_RPL37A)) + 
+  geom_histogram(bins = 12, color = "black", fill = "pink") + 
+  theme_classic() + 
+  labs(x = "B2M - RPL37A")
+
+ref_genes_ctrl %>%
+  ggplot(aes(sample = B2M_RPL37A)) + 
+  stat_qq() + 
+  stat_qq_line() + 
+  theme_classic() + 
+  labs(y = "B2M - RPL37A",
+       x = "Theoretical Normal Quantiles")
+
+
+# summary stats
+ref_genes_ctrl %>%
+  summarise(mn = mean(B2M_RPL37A),
+            med = median(B2M_RPL37A),
+            s = sd(B2M_RPL37A),
+            n = n())
+
+
+
+# wilcoxon test
+wilcox.test(x = ref_genes_ctrl$B2M, y = ref_genes_ctrl$RPL37A, paired = T, mu = 0, correct = F)
+
+# alt. code
+wilcox.test(x = -ref_genes_ctrl$B2M_RPL37A, mu = 0, correct = F)
+
+
+```
+
+
+
+```{r, warning=F}
+# table of counts
+xtabs( ~ cancer_status, data = ref_genes)
+
+# -----------------------------------------------------
+# B2M 
+
+# histograms
+ref_genes %>%
+  ggplot(aes(x = B2M, fill = cancer_status)) + 
+  geom_histogram(color = "black", bins = 15) + 
+  facet_wrap( . ~cancer_status, nrow = 2) + 
+  theme_bw() + 
+  theme(legend.position = "none")
+
+# qq plots
+ref_genes %>%
+  ggplot(aes(sample= B2M)) + 
+  stat_qq() + 
+  stat_qq_line()+
+  facet_wrap( . ~cancer_status, nrow = 2) + 
+  theme_bw() + 
+  labs(y = "B2M", x = "Theoretical Normal Quantiles")
+
+
+# -----------------------------------------------------
+# RPL37A
+
+# histograms
+ref_genes %>%
+  ggplot(aes(x = RPL37A, fill = cancer_status)) + 
+  geom_histogram(color = "black", bins = 15) + 
+  facet_wrap( . ~cancer_status, nrow = 2) + 
+  theme_bw() + 
+  theme(legend.position = "none")
+
+# qq plots
+ref_genes %>%
+  ggplot(aes(sample= RPL37A)) + 
+  stat_qq() + 
+  stat_qq_line()+
+  facet_wrap( . ~cancer_status, nrow = 2)+ 
+  theme_bw() + 
+  labs(y = "RPL37A", x = "Theoretical Normal Quantiles")
+
+
+```
+
+
+
+```{r, warning=F}
+# summary statistics
+ref_genes %>% 
+  group_by(cancer_status) %>%
+  summarise(med = median(B2M),
+            mn = mean(B2M), 
+            s = sd(B2M))
+
+# wilxocon rank sum test
+# B2M
+wilcox.test(-B2M ~ cancer_status, data = ref_genes, correct = F)
+#RPL37A
+wilcox.test(RPL37A ~ cancer_status, data = ref_genes, correct = F)
+
+```
+
+
+
+
