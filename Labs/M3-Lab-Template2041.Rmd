@@ -39,7 +39,7 @@ library(tidyverse)
 
 # load in the data 
 # verbose = T option will print out the name of the data frame that the obejct was stored with. This is the name you should use (you should see an object with this name in your environment)
-load("../Data/acupuncture_data_reduced.RData", verbose = T)
+load("/Users/vanes/Documents/SCHOOL/comp bio/BIOST2041/Data/acupuncture_data_reduced.RData", verbose = T)
 
 ```
 
@@ -83,7 +83,7 @@ data %>%
 # histogram
 ggplot(data, aes(x = headache_change)) + 
   geom_histogram(binwidth = 1) +
-  theme_bw()
+  theme_minimal()
 
 # Boxplot
 ggplot(data, aes(y = headache_change)) +
@@ -116,15 +116,15 @@ t.test(data$headache_change, mu = 0, alternative = "two.sided", conf.level = 0.9
 
 -   [Descriptions of the null and alternative hypotheses in **words** (not symbols):]{.underline} Null: there is no change in headache severity before and after treatment. Alternative: there is a significant change in headache severity before and after treatment.
 
--   [The value of the **test statistic** from this sample:]{.underline} -7.2599
+-   [The value of the **test statistic** from this sample:]{.underline} t = -7.2599
 
--   [The **p-value:**]{.underline} 2.877e-12
+-   [The **p-value:**]{.underline} p = 2.877e-12
 
--   [An **interpretation** of the **corresponding confidence interval**]{.underline}: The 99% confidence interval is (-6.397393 -3.032054), and as this value does not contain 0, it aligns with
+-   [An **interpretation** of the **corresponding confidence interval**]{.underline}: The 99% confidence interval is (-6.397393 -3.032054), and as this value does not contain 0, it indicates that the change in headache severity must be different than 0.
 
 -   [Your **decision** about the null hypothesis (reject/fail to reject):]{.underline} Certainly, reject the null.
 
--   [A **conclusion** about the hypothesis test]{.underline}: The
+-   [A **conclusion** about the hypothesis test]{.underline}: There is significant evidence to conclude that the mean change in headache severity is not zero.
 
 ## C. Signed rank test
 
@@ -134,28 +134,31 @@ Perform a **signed rank test using an alpha = 0.01 significance level** to see
 # conditions for a signed rank test
 
 # signed rank test implementation
-wilcox.test(data$pk1, data$pk2, paired = TRUE) 
+# wilcox.test(data$pk1, data$pk2, paired = TRUE) 
+wilcox.test(data$headache_change, mu = 0, alternative = "two.sided", conf.level = 0.99)
 ```
 
 [Write-up here:]{.underline}
 
--   **Check the conditions** to be able to use a signed rank test
+-   [**Check the conditions** to be able to use a signed rank test]{.underline}: Has paired observations, has assumed independence, has roughly symmetric distribution.
 
--   Descriptions of the null and alternative hypotheses in **words** (not symbols)
+-   [Descriptions of the null and alternative hypotheses in **words** (not symbols)]{.underline}: Null: The median change in headache severity is zero. Alternative: The median change in headache severity is significantly not zero.
 
--   The **p-value**
+-   [The **p-value**]{.underline}: p = 5.812e-15
 
--   Your **decision** about the null hypothesis (reject/fail to reject)
+-   [Your **decision** about the null hypothesis (reject/fail to reject)]{.underline}: Reject the null hypothesis.
 
--   A **conclusion** about the hypothesis test
+-   [A **conclusion** about the hypothesis test]{.underline}: There is significant evidence to conclude that the median change in headache severity is not zero.
 
 ## D. Summary of part 1
 
-**Write a 1-3-sentence summary of your findings from part 1,** describing the increase/decrease in headache severity as if you were reporting these findings in a scientific paper. Also, comment on whether the findings change based on whether you use a parametric or nonparametric inference procedure.
+[**Write a 1-3-sentence summary of your findings from part 1,** describing the increase/decrease in headache severity as if you were reporting these findings in a scientific paper. Also, comment on whether the findings change based on whether you use a parametric or nonparametric inference procedure.]{.underline}
 
-[Summary here]{.underline}:
+[Summary here]{.underline}: On average, participants experienced a significant decrease in headache severity from between baseline and 3-month follow-up, with a mean change of -4.71 (t = -7.2599, 99% CI (-6.397393, -3.032054), p-value = 2.877e-12). The Wilcoxon signed-rank test also indicated a significant decrease in headache severity (V = 13150, p-value = 5.812e-15). The consistent conclusions between both the parametric and nonparametric tests suggest that there is indeed a significant change in headache severity.
 
 # Part 2
+
+For this part, you will perform inference to compare the change in headache severity variable between the acupuncture treatment and control groups. 
 
 ## A. Descriptives: Change in headache severity by treatment group
 
@@ -164,10 +167,29 @@ Display an appropriate **numerical summary** of the change in headache severit
 ```{r}
 
 # numerical and visual summaries here for change in headache severity
+data %>%
+  group_by(trt) %>%
+  summarise(
+    mean = mean(headache_change, na.rm = TRUE),
+    median = median(headache_change, na.rm = TRUE),
+    sd = sd(headache_change, na.rm = TRUE),
+    IQR = IQR(headache_change, na.rm = TRUE),
+    min = min(headache_change, na.rm = TRUE),
+    max = max(headache_change, na.rm = TRUE)
+  )
+
+ggplot(data, aes(x = trt, y = headache_change, fill = trt)) +
+  geom_boxplot() +
+  theme_minimal()
+
+# learned about density plots in another class, figured it would be useful here
+ggplot(data, aes(x = headache_change, fill = trt)) +
+  geom_density(alpha = 0.4) +
+  theme_minimal()
 
 ```
 
-[Description of the variable]{.underline}:
+[Description of the variable]{.underline}: The mean of the control is -2.748366 and its median is -2.75, while the mean of the acupuncture treatment is -6.453757 and its median is -6.00. Looking at the boxplots, the acupuncture group has more outliers than the control– (-40.75, 32.75) for control and (-55.50, 50.75) for acupuncture. However they are both roughly normally distributed, with similar SDs and IQRs.
 
 ## B. Descriptives: Sex and age distributions by treatment group
 
@@ -185,18 +207,39 @@ Display an **appropriate numerical summary of age and sex** (make a new factor
 
 ```{r}
 # numerical and visual summaries here for sex 
+xtabs(~ trt + sex_f,data) %>% addmargins()
 
+# Bar plot for sex distribution by treatment group
+ggplot(data, aes(x = trt, fill = sex_f)) +
+  geom_bar() +
+  theme_minimal()
 
 # numerical and visual summaries here for age
+data %>%
+  group_by(trt) %>%
+  summarise(
+    mean = mean(age, na.rm = TRUE),
+    median = median(age, na.rm = TRUE),
+    sd = sd(age, na.rm = TRUE),
+    IQR = IQR(age, na.rm = TRUE),
+    min = min(age, na.rm = TRUE),
+    max = max(age, na.rm = TRUE)
+  )
+
+# Boxplot of age by treatment group
+ggplot(data, aes(x = trt, y = age, fill = trt)) +
+  geom_boxplot() +
+  theme_minimal() 
+
 ```
 
-[Description here]{.underline}:
+[Description here]{.underline}: There are significantly more females than there are males. However the sex proportions for both groups are very close, with 84.2% females in control group and 83.9% females in treatment. Likewise, the age distribution in both groups are very similar, the control mean being 45.34184 years and the treatment mean being 45.72683.
 
 ## C. Comment on 2B findings
 
 **Comment on how the study design may have contributed to the results** in part 2B above. In the next section, we will test for differences in change in headache severity between the treatment and control groups. **How might your findings in 2B impact the conclusions** you are able to draw in the next section? 
 
-[Comments about differences and how study design may have contributed here/possible impacts on next section]{.underline}:
+[Comments about differences and how study design may have contributed here/possible impacts on next section]{.underline}: The two groups having very similar demographics is certainly beneficial for the study design. Because these two groups are almost identical in age and sex distribution, we can rule out demographics having any confounding impact on determining whether or not headache severity differed between the two groups.
 
 ## D. Two-sample t test
 
@@ -205,26 +248,29 @@ Perform a **two-sample t-test** (not assuming equal variances) using an **alph
 ```{r}
 
 # check conditions of test
+  # two independent groups
+  # normal distributions 
 
 # run a two sample t test to test if the change in headache severity was the same in each group
+t.test(headache_change ~ trt, data = data)
 
 ```
 
 [Write-up here]{.underline}:
 
--   **Check the conditions** to be able to use a two-sample t-test
+-   [**Check the conditions** to be able to use a two-sample t-test]{.underline}: The two groups are independent, and the data is roughly normally distributed.
 
--   Descriptions of the null and alternative hypotheses in **words** (not symbols)
+-   [Descriptions of the null and alternative hypotheses in **words** (not symbols)]{.underline}: Null: the mean change in headache severity is the same for the acupuncture and control group (no treatment effect). Alternative: there is a significant mean change in headache severity in the acupuncture and control group.
 
--   The value of the **test statistic** from this sample
+-   [The value of the **test statistic** from this sample]{.underline}: t = 2.9006
 
--   The **p-value**
+-   [The **p-value**]{.underline}**:** p = 0.003979
 
--   An **interpretation** of the corresponding **confidence interval**
+-   [An **interpretation** of the corresponding **confidence interval**]{.underline}: The 95% CI is (1.192266, 6.218516). As this is positive, and the mean is negative, this indicates that the control group's change was higher (ie less effective) than the treatment group.
 
--   Your **decision** about the null hypothesis (reject/fail to reject)
+-   [Your **decision** about the null hypothesis (reject/fail to reject)]{.underline}: We reject the null hypothesis.
 
--   A **conclusion** about the hypothesis test
+-   [A **conclusion** about the hypothesis test]{.underline}: There is a significant decrease in headache severity in participants who had acupuncture treatment than those who did not.
 
 ## E. Wilcoxon rank sum test
 
@@ -233,28 +279,32 @@ Perform a **rank sum test using an alpha = 0.05 significance level** to see if 
 ```{r}
 
 # conditions for a rank sum test
+  # continuous
+  # two indepedent samples
+  # similarly shaped data 
 
 # rank sum test implementation
-
+# Wilcoxon rank-sum test (Mann–Whitney U test)
+wilcox.test(headache_change ~ trt, data = data, alternative = "two.sided", conf.level = 0.95)
 ```
 
 [Write-up here]{.underline}:
 
--   **Descriptions** of the null and alternative hypotheses in **words** (not symbols)
+-   **Descriptions** of the null and alternative hypotheses in **words** (not symbols): Null:
 
--   **Check the conditions** to be able to use a rank sum test
+-   **Check the conditions** to be able to use a rank sum test: The data are from two independent samples, are continuous, and have similarly shaped distributions.
 
--   The **p-value**
+-   [The **p-value**]{.underline}: p = 0.001198
 
--   Your **decision** about the null hypothesis (reject/fail to reject)
+-   Your **decision** about the null hypothesis (reject/fail to reject): Reject the null.
 
--   A **conclusion** about the hypothesis test
+-   [A **conclusion** about the hypothesis test]{.underline}: There is a statistically significant difference in the distribution of headache severity change between the acupuncture and control groups.
 
 ## F. Summary of part 2
 
-Write a **1-3-sentence summary of your findings from part 2** describing how the increase/decrease in headache severity differed between the acupuncture treatment and control groups, as if you were reporting these findings in a scientific paper. Also, comment on whether the findings change based on whether you use a parametric or nonparametric inference procedure.
+[Write a **1-3-sentence summary of your findings from part 2** describing how the increase/decrease in headache severity differed between the acupuncture treatment and control groups, as if you were reporting these findings in a scientific paper. Also, comment on whether the findings change based on whether you use a parametric or nonparametric inference procedure.]{.underline}
 
-[Summary here]{.underline}:
+[Summary here]{.underline}: On average, participants in the acupuncture group experienced a greater decrease in headache severity (mean = -6.45) than those in the control group (mean = -2.75). The difference between groups was statistically significant according to both the Welch two-sample t-test (p = 0.004, 95% CI (1.19, 6.22)) and the Wilcoxon rank-sum test (W = 15,986, p = 0.0012). These conclusions did not differ between the parametric and nonparametric analyses.
 
 # Session Information
 

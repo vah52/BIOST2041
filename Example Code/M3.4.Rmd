@@ -113,8 +113,6 @@ wilcox.test(x = -ref_genes_ctrl$B2M_RPL37A, mu = 0, correct = F)
 
 ```
 
-
-
 ```{r, warning=F}
 # table of counts
 xtabs( ~ cancer_status, data = ref_genes)
@@ -163,8 +161,6 @@ ref_genes %>%
 
 ```
 
-
-
 ```{r, warning=F}
 # summary statistics
 ref_genes %>% 
@@ -180,7 +176,3 @@ wilcox.test(-B2M ~ cancer_status, data = ref_genes, correct = F)
 wilcox.test(RPL37A ~ cancer_status, data = ref_genes, correct = F)
 
 ```
-
-
-
-
