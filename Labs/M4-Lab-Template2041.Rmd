@@ -1,0 +1,326 @@
+---
+title: "M4 Lab"
+author: "Vanessa Hong"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    number_sections: false
+    toc_depth: '3'
+    code_folding: show
+---
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+require(knitr)
+try(knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file()))
+
+try(knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file()))
+
+
+```
+
+```{r, message=FALSE}
+library(tidyverse)
+
+library(tidyverse)
+if(!require(emmeans)){install.packages("emmeans")
+  library(emmeans)} #this line installs the package only if you don't already have it installed
+if(!require(car)){install.packages("car")
+  library(car)}
+```
+
+# Part 1: Tumor Growth
+
+## Data Management
+
+**Load the data into R using the load() function.**
+
+```{r}
+# load data 
+load("C:/Users/vanes/Documents/SCHOOL/comp_bio/BIOST2041/Data/tumor_growth.RData", verbose = T) 
+
+head(tumor)
+```
+
+### Creating new factor variable
+
+**Create a new factor variable to label the treatment groups (1 = control, 2 = drug only, 3 = radiation only, 4 = drug + radiation). We are going to use this variable as our grouping variable in the ANOVA model below. [Why is it important that we use the categorical version and not the numeric version in ANOVA?]{.underline}**
+
+```{r}
+# create new factor variable
+tumor <- tumor %>%
+  mutate(Treatment = factor(Group, 
+                            levels = c(1, 2, 3, 4), 
+                            labels = c("control", "drug only", "radiation only", "drug + radiation")))
+
+head(tumor)
+```
+
+[Response:]{.underline} ANOVA compares distinct group means, so continuous data should not be used in ANOVA tests, and if we use numerical values, R would interpret these numbers as continuous variables. Turning these values into factors ensures the variables are discrete.
+
+## Descriptive Statistics
+
+Display an appropriate numerical summary for tumor size by treatment group. Create appropriate visualizations to display the distribution of tumor size by treatment group. Comment on what you see.
+
+```{r}
+# summary statistics and visualization
+tumor %>%
+  group_by(Treatment) %>%
+  summarise(n = n(),
+            sample_mean = mean(Size),
+            sample_sd = sd(Size),
+            sample_var = var(Size))
+
+# visualization 
+tumor %>%
+  ggplot(aes(x = Treatment, y = Size, fill = Treatment)) + 
+  geom_boxplot(alpha = .5) + 
+   theme_bw() 
+```
+
+[Response:]{.underline} Looking at the box plots, the control, drug only, and radiation only treatments all have somewhat close tumor size means (2067.287, 1787.750, 1890.320, respectively) and ranges (around 309-504 SD). The drug + radiation treatment has a significantly smaller mean sample size of 1130.644, and a much wider SD of around 712. The distributions are relatively normal.
+
+## ANOVA
+
+**Perform one-way ANOVA (with appropriate post-hoc comparisons if warranted) using an 0.05 significance level to see if there was a treatment effect on tumor size. In your write-up, include the following:**
+
+-   **For the overall ANOVA F test...**
+
+    -   **descriptions of the null and alternative hypotheses in words (not symbols) (1 pt)**
+
+    -   **check the conditions to be able to use ANOVA (1 pt)**
+
+    -   **the p-value, decision, and conclusion (1 pt)**
+
+-   **(0.5 pts) A table of post-hoc pairwise treatment comparisons indicating which are statistically significant, if applicable.**
+
+**(1 pt) Summarize your findings from this section to address the primary research question (which treatment[s] yielded the best outcome).**
+
+### Null and alternative hypotheses
+
+[Response:]{.underline} H0: There is no difference in mean tumor size in all four treatment groups.
+
+HA: At least one treatment group has a significantly different mean tumor size.
+
+### Check Conditions
+
+```{r}
+
+# check conditions
+table(tumor$Treatment)
+
+tumor %>%
+  ggplot(aes(sample = Size)) + 
+  geom_qq() + 
+  geom_qq_line() + 
+  facet_wrap( ~ Treatment) + 
+  theme_bw()
+
+tumor %>%
+  group_by(Treatment) %>%
+  summarise(n = n(),
+            sample_var = var(Size))
+```
+
+[Response:]{.underline}
+
+Conditions:
+
+-   [Independent groups:]{.underline} Groups are assumed to be independent.
+-   [Random sample:]{.underline} Groups assumed to be randomly sampled.
+-   [N \> 30 in each group or normal distribution for outcome variable in each group]{.underline}: N is very small for each group, \< 11. They look relatively normal.
+-   [Equal variances across groups]{.underline}: variances are not equal.
+
+```{r}
+# run anova
+# recall to run anova we first fit a model using 
+# model <- lm(outcome ~ predictor, data = data_name)
+# then we get the analysis of variance table using anova(model)
+# fit model
+anova_model <- lm(Size ~ Treatment, data = tumor)
+summary(anova_model)
+
+# anova table
+anova(anova_fit)
+```
+
+[Response:]{.underline} p-value: 0.00307. We reject the null hypothesis. There is a statistically significant difference in the tumor size in these treatment groups.
+
+### Post-hoc comparisons
+
+```{r}
+# post-hoc comparisons if appropriate
+posthoc <- emmeans(anova_model, pairwise ~ Treatment, adjust = "none")
+posthoc$contrasts
+
+# adding bonferroni correction to adjust for multiple comparisons
+posthoc_b <- emmeans(anova_model, pairwise ~ Treatment, adjust = "bonferroni")
+posthoc_b$contrasts
+```
+
+### Summary
+
+**Summarize your findings from this section to address the primary research question (which treatment[s] yielded the best outcome).**
+
+[Response]{.underline}:
+
+The ANOVA results show that treatment has a significant effect on tumor size (F-statistic = 5.65, p = 0.003). Post-hoc, the p-values of the Bonferroni comparisons show that the drug + radiation treatment combination produced significantly smaller tumors than several of the other groups (p-val = 0.0038). There were no significant differences between control, drug only, or radiation only treatments. Therefore, the drug + radiation treatment yielded the best outcome.
+
+## Kruskal-Wallis
+
+**Perform a Kruskal-Wallis test using a significance level of 0.05 to see if there was a treatment effect on tumor size. In your write-up, include the following:**
+
+-   **descriptions of the null and alternative hypotheses in words (not symbols) (0.5 pts)**
+
+-   **check the conditions to be able to use the test (0.5 pts)**
+
+-   **the p-value, decision, and conclusion (0.5 pts)**
+
+**Comment on whether this is in agreement with the results from ANOVA or not.**
+
+### Null and alternative hypotheses
+
+[Response]{.underline}: H0: the median of the tumor sizes is the same across all tumor groups.
+
+HA: At least one group has a different median tumor size.
+
+### Conditions
+
+```{r}
+# code to check conditions
+
+# check for similar distributions
+tumor %>%
+  ggplot(aes(x = Size)) + 
+  geom_histogram(aes(fill = Treatment), bins = 13) + 
+  theme_bw() + 
+  facet_wrap( ~ Treatment) + 
+  theme(legend.position = "none")
+```
+
+[Response]{.underline}: The data is assumed independent and randomly sampled, the dependent variable (Size) is continuous and the grouping variable (Treatment) is categorical. The data are also indeed in non-normal distributions.
+
+### Run Kruskal-Wallis
+
+```{r}
+# kruskal-wallis test
+kruskal.test(Size ~ Treatment, data = tumor)
+
+```
+
+[Response]{.underline}: p-value = 0.02311, reject the null hypothesis. There is a statistically significant difference in median tumor sizes among the four treatment groups, so at least one treatment group differs from the others in terms of tumor growth.
+
+### Do the results agree with ANOVA?
+
+[Response]{.underline}: Yes, both the ANOVA and the Kruskal-Wallis test have low enough p-values to conclude that there is a statistically significant difference in tumor sizes amongst the four treatment groups.
+
+# Part 2: Intubation
+
+## Data Management
+
+**Load the data into R using the load() function. Filter the data to only include those with a successful first intubation attempt (attempt1_S_F ==1). For the rest of this assignment, you will only need the variables 'BMI' (patient's body mass index) and 'ease' (ease of intubation).**
+
+```{r}
+# import data
+load("C:/Users/vanes/Documents/SCHOOL/comp_bio/BIOST2041/Data/Laryngoscope.Rdata", verbose = T)
+
+# filter data
+lary <- laryngoscope %>%
+  filter(attempt1_S_F == 1) %>%
+  select(BMI, ease)
+head(lary)
+```
+
+## Descriptive Statistics
+
+**Create an appropriate visualization and numerical summary to display the relationship between BMI and ease of intubation. Comment on what you see.**
+
+```{r}
+# summary statistics and visualization
+
+# visualize
+lary %>%
+  ggplot(aes(x = BMI, y = ease)) + 
+  geom_point() + 
+  theme_bw() 
+
+# fit model
+model <- lm(ease ~ BMI, data = lary)
+# summary of model
+summary(model)
+
+```
+
+[Response]{.underline}: There does not appear to be correlation between the points. In the fit model summary, the p-value is 0.3669, indicating very poor correlation.
+
+## Linear Regression
+
+**Create a linear regression model with the variables BMI (x) and ease (y) (a scale from 0-100 with higher numbers indicating more difficult intubations) to address this. Show your model output. Use a 0.05 significance level for any hypothesis tests.**
+
+```{r}
+# fit model
+# again here we use lm(y ~ x, data = data_name)
+
+model <- lm(ease ~ BMI, data = lary)
+# summary of model
+summary(model)
+
+# add standard error to this 
+lary %>%
+  ggplot(aes(x = BMI, y = ease)) + 
+  geom_point() + 
+  theme_bw() +
+  geom_smooth(method = "lm", se = F)
+
+# residual plots
+# residual vs fitted values
+# we can use this to check equal variance and linearity
+plot(model, which = 1)
+
+# qq plot of residuals
+plot(model, which = 2)
+```
+
+### Estimated regression model
+
+[Response]{.underline}: yhat = 62.78 + (-0.5305)\*BMI
+
+### Slope interpretation:
+
+[Response]{.underline}: There is a very slight negative correlation between increasing BMI and ease of intubation.
+
+### Hypothesis test
+
+[Response]{.underline}: p-val = 0.3669, thus we fail to reject the null. There is not enough evidence to conclude a statistically significant correlation between increasing BMI and ease of intubation.
+
+### R squared Interpretation
+
+[Response]{.underline}: R\^2 = -0.002088. There is a very small negative correlation.
+
+### Predicted value for BMI = 35
+
+**Estimate the ease of intubation for a patient with a BMI of 35 (you do not need to calculate the interval for this estimate)**
+
+```{r}
+# predicted y for BMI = 35
+predict(model, newdata  = data.frame(BMI = 35))
+
+# 44.21411 
+```
+
+[Response]{.underline}: The predicted value at BMI = 35 is 44.21411.
+
+### Summary
+
+**Summarize your findings from this section to whether BMI is a good predictor of ease of intubation**
+
+[Response]{.underline}: BMI is not a good indicator for ease of intubation. There is a very slight negative correlation between these two variables, but it is not statistically significant enough (p-value = 0.3669) to reject the null hypothesis (that there is no correlation between BMI and ease of intubation).
+
+# Session Information
+
+```{r}
+sessionInfo()
+```

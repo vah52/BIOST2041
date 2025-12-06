@@ -1,0 +1,274 @@
+---
+title: "Recitation 9 (not 10, sorry): ANOVA & SLR"
+author: "Haley Grant"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    number_sections: no
+    toc_depth: '4'
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+# Set-Up
+
+## Load packages
+
+```{r}
+library(tidyverse)
+if(!require(emmeans)){install.packages("emmeans")
+  library(emmeans)}
+
+```
+
+# ANOVA Continued
+
+## Refresher: Gene Expression by Cancer Type
+
+Last recitation we were looking for differences in gene expression by cancer type. We found evidence of differences based on ANOVA.
+
+```{r}
+# read in data
+genes = read_csv("Data/microarray_cancer.csv")
+
+# visualization (boxplots)
+genes %>%
+  ggplot(aes(x = cancer, y = gene1)) + 
+  geom_boxplot(aes(fill = cancer), alpha = 0.5) + 
+  theme_bw() + 
+  theme(legend.position = "none")
+
+# fit model
+model1 <- lm(gene1 ~ cancer, data = genes)
+# anova table
+anova(model1)
+
+```
+
+## Pairwise Comparisons
+
+**Is it appropriate to run the follow-up post-hoc comparisons (pairwise comparisons) in this scenario? If so, provide a table of pairwise comparisons.**
+
+```{r}
+# pairwise comparison if appropriate
+model.emm <- emmeans(model1, pairwise ~ cancer, adjust = "none")
+model.emm$contrasts
+
+# adding bonferroni correction to adjust for multiple comparisons
+model.emm.bonf <- emmeans(model1, pairwise ~ cancer, adjust = "bonferroni")
+model.emm.bonf$contrasts
+
+```
+
+We can see that even after adjusting for multiple comparisons (multiple hypothesis testing), we have evidence (at a significance level of 0.05) of differences between Leukemia and most of the other cancer types (just not CNS cancers or lymphoma).
+
+## Kruskal Wallis
+
+Recall that we were a bit concerned about using ANOVA, because the sample sizes were quite small and the distributions in the different cancer types didn't look like they had equal variances. So, let's move to Kruskal-Wallis.
+
+**Check the conditions and run the Kruskal-Wallis test as an alternative to ANOVA for this example. Interpret the results of this test.**
+
+```{r}
+# check for similar distributions
+genes %>%
+  ggplot(aes(x = gene1)) + 
+  geom_histogram(aes(fill = cancer), bins = 13) + 
+  theme_bw() + 
+  facet_wrap( ~ cancer) + 
+  theme(legend.position = "none")
+
+# run test
+kruskal.test(gene1 ~ cancer, data = genes)
+
+```
+
+We reject the null and conclude that there is an association between cancer type and gene expression. That is, we have evidence that at least one cancer type differs in gene expression in gene 1 from the rest (differs in median if we trust the similar shaped distributions assumption).
+
+## Pairwise Comparisons
+
+Just like in ANOVA, if the p-value from Kruskal-Wallis is significant, we could follow this procedure up with pairwise Wilcoxon Rank Sum tests!
+
+```{r warning=F}
+# pairwise tests if appropriate
+pairwise.wilcox.test(x = genes$gene1, g = genes$cancer, p.adjust.method = "none")
+pairwise.wilcox.test(x = genes$gene1, g = genes$cancer, p.adjust.method = "bonferroni")
+
+```
+
+Similar to the ANOVA and pairwise test results, even after adjusting for multiple hypothesis testing, we see evidence of a difference in gene 1 expression (median if you trust the similar shapes assumption) between those with Leukemia and all other cancer types except CNS and lymphoma.
+
+# SLR
+
+## Import data
+
+```{r}
+
+# import the data using the .RData file provided
+load("Data/liver_data.RData", verbose = T)
+
+# update units for LV
+liver_data = liver_data %>% 
+  rename(liver_volume_mL = liver_volume) %>%
+  mutate(liver_volume = liver_volume_mL/1000)
+```
+
+## Visualization
+
+**Make a plot to visualize the relationship between age (age) and liver volume (liver_volume). What type of relationship do you see?**
+
+```{r}
+# plot
+liver_data %>%
+  ggplot(aes(x = age, y = liver_volume)) + 
+  geom_point() +
+  theme_bw() + 
+  labs(x = "Age (years)",
+       y = "Liver Volume (L)")
+
+```
+
+## Summary statistic
+
+**Calculate a summary statistic to describe the relationship between age and liver volume. Interpret this result (direction and strength of association)**
+
+```{r}
+# summary stat
+cor(liver_data$liver_volume, liver_data$age)
+cor(liver_data$age,liver_data$liver_volume)
+cor(liver_data$liver_volume_mL, liver_data$age)
+```
+
+Interpretation: The correlation between age and liver volume is -0.487. This means there is a negative association between age and liver volume, and the strength of the relationship is moderate (not as strong as +/- 1 but moderate).
+
+I calculated cor(age, LV), cor(LV, age), and cor(age, LV\*1000) to show that correlation doesn't change if you flip the order
+
+## Fit a SLR model
+
+**Below I've included code to fit a simple linear regression model using liver volume as the outcome (dependent variable) and age as the predictor (independent variable) and print the output. There are errors in both lines; identify the errors and fix them**
+
+```{r}
+# fix the errors
+# fit model
+# code with error:
+#   model <- lm(liver_volume ~ age)
+# explanation of problem: need to specify dataframe object if using column 
+
+# corrected code: 
+model <- lm(liver_volume ~ age, data = liver_data)
+
+# print output
+summary(model)
+
+```
+
+yhat = 1.934 + (-0.012) \* age
+
+## Predicted value for age = 60
+
+**Below I've included code to calculate the predicted liver volume for a 60-year-old using the estimated regression line, but again, there is an error in the code. Identify the error and fix it to calculate the predicted liver volume for a person who is 60 years old.**
+
+```{r}
+# by hand
+b0 <- model$coefficients[1] %>% unname()# unname just gets rid of the label
+b1 <- model$coefficients[2] %>% unname()
+b0 + b1 * 60
+
+# fix the error
+# predicted value for age = 60
+# original code with error : predict(model, newdata  = 60)
+# explanation of problem: predict() is expecting a data frame with the same columns (i.e. same names) as the predictors (not necessarily outcome; so, in this case, just age) you used to fit the model
+
+# corrected code:
+predict(model, newdata  = data.frame(age = 60) )
+
+```
+
+## Predicted value for age = 61
+
+**Calculate the predicted liver volume for a 61-year-old using the estimated regression line. How different is this from the predicted value for a 60-year-old?**
+
+```{r}
+# predicted value for age = 61
+# by hand
+b0 + b1 * 61
+# with predict function
+predict(model, newdata =  data.frame(age = 61))
+
+# difference E(LV | age = 61) - E(LV | age = 60)
+yhat60 = predict(model, newdata =  data.frame(age = 60))
+yhat61 = predict(model, newdata =  data.frame(age = 61))
+yhat61 - yhat60
+# it's the same as b1 (the slope)
+
+# compare 62 to 61
+yhat62 = predict(model, newdata =  data.frame(age = 62))
+yhat62 - yhat61
+# still the same as the slope!
+
+# comparing 62 to 60 (a 2-unit change)
+yhat62 - yhat60
+b1 * 2
+
+# interpreting the intercept
+b0
+# we get the intercept (b0) alone when we plug in 0 for the predictor (age)
+b0 + b1 * 0
+
+```
+
+Note that if we calculate the predicted values for any two individuals who are 1 year apart in age, the difference in predicted values (older - younger) will be the estimated slope. If we plug in 0 for age, we get the intercept term on its own.
+
+## Interpret coefficients
+
+**Interpret the estimated intercept and slope coefficients from the estimated regression line.**
+
+Intercept: Expected liver volume for an individual whose age is 0 years is estimated to be 1.93 liters (this doesn't make a whole lot of sense--it is clearly extrapolation).
+
+Slope: Expected difference in liver volume associated with a 1-year increase in age is estimated to be -0.012 liters (a decrease in liver volume as age increases).
+
+## Calculating residuals
+
+**To see how residuals get calculated, we're going to look at the first 10 observations. We know their outcome values (liver volume) so we can print these. We can also calculate their predicted values using the estimated regression line. The residual is just the difference between the observed value and the estimated value:**
+
+```{r}
+# observed values
+liver_data$liver_volume[1:10]
+
+# predicted values by hand
+b0 <- model$coefficients[1]
+b1 <- model$coefficients[2]
+b0 + b1 * liver_data$age[1:10]
+
+# predicted values with predict function
+predict(model)[1:10]
+
+# residuals
+liver_data$liver_volume[1:10] - predict(model)[1:10]
+
+# residuals from model
+model$residuals[1:10]
+
+# plot to visualize
+data.frame(age = liver_data$age[1:10],
+  observed = liver_data$liver_volume[1:10], 
+           predicted = predict(model)[1:10]) %>% 
+  mutate(residual = observed - predicted) %>%
+  mutate(sign= ifelse(residual > 0, "Positive Residual","Negative Residual")) %>%
+  ggplot(aes(x = age)) +
+  geom_point(aes(y = predicted), color = "purple") + 
+  geom_point(aes(y = observed), color = "black") + 
+  geom_line(aes(y = predicted), color = "purple")+
+  theme_bw() +
+  geom_segment(aes(xend = age, y = observed, yend = predicted, color = sign)) + 
+  labs(y = "Liver Volume", color = element_blank())
+
+```

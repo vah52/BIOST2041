@@ -1,0 +1,358 @@
+---
+title: "Recitation 10: SLR Inference"
+subtitle: "SOLUTIONS"
+author: "Haley Grant"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    number_sections: no
+    toc_depth: '4'
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+# Set-up
+
+## Load packages
+
+```{r}
+library(tidyverse)
+if(!require(ggExtra)){install.packages("ggExtra")
+  library(ggExtra)}
+
+```
+
+## Import data
+
+```{r}
+
+# import the data using the .RData file provided
+load("Data/liver_data.RData", verbose = T)
+
+# update units for LV
+liver_data = liver_data %>% 
+  rename(liver_volume_mL = liver_volume) %>%
+  mutate(liver_volume = liver_volume_mL/1000)
+
+```
+
+# Simple Linear Regression
+
+## Visualization and model from last time
+
+Here I have reproduced the scatterplot and model we fit last time relating liver volume to age within the sample:
+
+```{r}
+# visualize
+liver_data %>%
+  ggplot(aes(x = age, y = liver_volume)) + 
+  geom_point() + 
+  theme_bw() + 
+  labs(x = "Age",y = "Liver Volume")
+
+# fit model
+model <- lm(liver_volume ~ age, data = liver_data)
+# summary of model
+summary(model)
+
+# add standard error to this 
+liver_data %>%
+  ggplot(aes(x = age, y = liver_volume)) + 
+  geom_point() + 
+  theme_bw() + 
+  labs(x = "Age",y = "Liver Volume") + 
+  geom_smooth(method = "lm", se = F)
+
+```
+
+## Check conditions
+
+To trust our inference, we need to check the regression assumptions.
+
+**Check the conditions for regression using residual plots. Do the regression assumptions appear to be (reasonably) met?**
+
+L = linearity I = independence N = normality of residuals (or outcome is normally distributed at each value of X) E = equal variance
+
+```{r}
+# residual plots
+# residual vs fitted values
+# we can use this to check equal variance and linearity
+plot(model, which = 1)
+
+# qq plot of residuals
+plot(model, which = 2)
+
+```
+
+Interpretation: Based on the residuals vs fitted values plots, linearity looks reasonable and equal variance looks alright. Based on the normal QQ plot, we see there are a few upper outliers (large positive residuals), but they look generally normal.
+
+Here are some examples where the assumptions are clearly violated:
+
+```{r}
+# simulating data where assumptions are violated
+set.seed(111)
+x = runif(n = 200)
+y1 = 2*x - 2*x^2 + rnorm(n = 200, sd = 0.1)
+y2 = 2*x + rnorm(n = 200, sd = x)
+y3 = 2*x + rexp(n = 200)
+
+# residuals vs fitted values (nonlinearity)
+plot(lm(y1 ~ x), which = 1)
+
+# residuals vs fitted values (non equal variance)
+plot(lm(y2 ~ x), which = 1)
+
+# qq plot of residuals (non-normality)
+plot(lm(y3 ~ x), which = 2)
+```
+
+# Simulation
+
+Next we're going to run a simulation to help illustrate the difference between normality of the outcome variable (Y) in linear regression and normality of the residuals.
+
+## Simulate data
+
+Here I'm simulating some data and fitting a linear model on the fitted data. Run this chunk.
+
+```{r}
+set.seed(123)
+model = lm(liver_volume ~ age, data = liver_data)
+# simulate x
+x = c(runif(n = 100, min = 5, max = 10), liver_data$age + 10)
+# simulate y using model we fit earlier + add random (normal) noise
+y = predict(model, newdata = data.frame(age = x)) + rnorm(n = length(x),mean = 0, sd = sqrt(sum(model$residuals^2)/model$df.residual)/2)
+
+# fit model
+model.sim = lm(y ~ x)
+sim.data = data.frame(x, y , residuals = model.sim$residuals) 
+
+
+```
+
+## Plot y
+
+**Make a histogram and QQ-plot of the simulated outcome variable, y. Does this variable look normally distributed?**
+
+```{r}
+# histogram of y
+sim.data %>%
+  ggplot(aes(x = y)) + 
+  geom_histogram(color = "black", fill = "lightblue") + 
+  theme_bw()
+
+# qqplot of y
+sim.data %>%
+  ggplot(aes(sample = y)) + 
+  geom_qq() + 
+  geom_qq_line() + 
+  labs(x = "Theoretical Normal Quantiles",
+       y = "Observed Quantiles of Outcome Variable")
+
+```
+
+## Visualize Residuals
+
+**Make a histogram and QQ-plot of the residuals from the linear model we fit on the simualted data. Does this variable look normally distributed?**
+
+```{r}
+# histogram of residuals
+sim.data %>%
+  ggplot(aes(x = residuals)) + 
+  geom_histogram(color = "black", fill = "firebrick1") + 
+  theme_bw()
+
+# qqplot of residuals
+sim.data %>%
+  ggplot(aes(sample = residuals)) + 
+  geom_qq() + 
+  geom_qq_line() + 
+  labs(x = "Theoretical Normal Quantiles",
+       y = "Observed Quantiles of Residuals")
+```
+
+## Plots showing joint and marginal distributions
+
+These plots are meant to help explain what is happening above. Notice that even though the residuals are normally distributed, the outcome variable is not because the x variable isn't symmetric.
+
+Note: you won't ever need to make plots like these on your assignments, I'm just including these plots with the marginal distributions plotted to help explain this phenomenon.
+
+### Plot y by x
+
+```{r}
+
+# scatterplot of y ~ x
+ggMarginal(sim.data %>%
+  ggplot(aes(x = x, y= y)) + 
+  geom_point() + 
+  theme_bw() + 
+    geom_smooth(method = "lm", se = F), type = "histogram")
+
+```
+
+### Plot residuals by x
+
+```{r}
+# scatterplot of residuasl  ~ x
+ggMarginal(sim.data %>%
+  ggplot(aes(x = x, y= residuals)) + 
+  geom_point(color = "red") + 
+  theme_bw() + 
+    geom_smooth(method = "lm", se = F), type = "histogram")
+
+```
+
+## Coefficient of determination
+
+**What is the coefficient of determination (R squared) for the model we fit on the liver data? Interpret this value.**
+
+```{r}
+summary(model)$r.squared
+```
+
+Interpretation: 23.7% of the variation in liver volume can be "explained" by age (by the linear regression line using age as a predictor).
+
+## Decomposing Variability
+
+```{r}
+n = 372
+# variability in outcome
+var(liver_data$liver_volume)
+var(liver_data) * (n - 1)
+ybar = mean(liver_data$liver_volume)
+SST = sum((liver_data$liver_volume - ybar)^2)
+SST
+
+# variability in predicted values
+yhatbar = mean(model$fitted.values) # yhatbar = ybar
+SSR = sum((model$fitted.values - yhatbar)^2)
+SSR
+
+# variability in residuals
+ebar = mean(model$residuals) # ebar ~= 0
+SSE = sum((model$residuals - ebar)^2)
+SSE
+
+# calculate R2 by hand
+# proportion variability explained
+SSR / SST
+
+# 1 - proportion variability not explained
+ 1- SSE / SST
+
+# model-based R2
+summary(model)$r.squared
+```
+
+## Hypothesis test for slope
+
+### Hypotheses
+
+**What are the null and alternative hypotheses for the test for the slope shown in the model summary output?**
+
+Null: Slope in the population is 0 (i.e. liver volume and age have no linear association).
+
+Alternative: Slope in the population is not 0 (i.e. liver volume and age have a linear association).
+
+### Results
+
+**What are the test statistic and p-value for this test. Interpret the results of this hypothesis test (use alpha = 0.05).**
+
+Test statistic: T = (beta1hat - 0) / SE(beta1hat) = -10.73
+
+p-value: 1.4 e-23 (p \< 2e-16)
+
+Interpretation: reject null. we have sufficient evidence of a negative linear relationship between age and liver volume
+
+```{r}
+# exact calculations (by hand):
+# sample size
+n = 372
+# slope estimate
+betahat = model$coefficients[2]
+# standard error
+se = summary(model)$coefficients[2,"Std. Error"]
+# test stat
+t_obs = (betahat - 0) / se
+t_obs
+# p-value
+pv = pt(abs(t_obs), df = n - 2, lower.tail = F) * 2
+pv
+```
+
+## Inference for parameters
+
+**Write some code to get the estimated 95% confidence intervals for each parameter and interpret the confidence intervals below.**
+
+```{r}
+# confidence interval for parameters
+confint(model)
+
+```
+
+Interpretations:
+
+Intercept: We are 95% confident the average liver volume for a 0-year-old is between 1.78 and 2.09 liters (this is probably wrong--extrapolation!!)
+
+Slope: We are 95% confident the average difference in liver volume associated with a one-year increase in age is between -0.0145 and -0.01.
+
+## Inference for average liver volume at specific ages
+
+**Write some code to obtain 95% confidence intervals for the average liver volume at age 30, 50, 65, 80, and 90.**
+
+```{r}
+
+# confidence interval for estimated average liver volume at different ages
+# for age = c(30, 50, 65, 80, 90)
+predict(model, newdata = data.frame(age = c(30, 50, 65, 80, 90)),
+        interval = "confidence")
+
+
+```
+
+Here we can visualize the confidence interval for the estimated liver volume across the range of ages observed in our sample:
+
+```{r}
+# visualization
+liver_data %>%
+  ggplot(aes(x = age, y = liver_volume)) + 
+  geom_point() + 
+  theme_bw() + 
+  labs(x = "Age",y = "Liver Volume") + 
+  geom_smooth(method = "lm")
+
+
+```
+
+## Interpretation of confidence intervals
+
+**What is the interpretation of these confidence intervals? What value should intervals like these contain 95% of the time?**
+
+Answer: We are 95% confident that the **AVERAGE** liver volume among people who are 30, 50, 65, 80, and 90 is between lower and upper values given above, respectively.
+
+## Inference for individual values of liver volume at specific ages
+
+**Write some code to obtain 95% prediction intervals for an individual's liver volume of age 30, 50, 65, 80, and 90.**
+
+```{r}
+# prediction intervals for estimated  liver volume at different ages
+# for age = c(30, 50, 65, 80, 90)
+predict(model, newdata = data.frame(age = c(30, 50, 65, 80, 90)),
+        interval = "prediction")
+
+
+```
+
+## Interpretation of prediction intervals
+
+**What is the interpretation of these prediction intervals? What value should intervals like these contain 95% of the time?**
+
+Answer: We are 95% confident that **an individual** who is 30, 50, 65, 80, and 90 will have a liver volume between lower and upper values given above, respectively.

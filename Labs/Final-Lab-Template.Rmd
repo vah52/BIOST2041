@@ -1,0 +1,399 @@
+---
+title: "Final Lab"
+author: "Vanessa Hong"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    number_sections: false
+    toc_depth: '3'
+    code_folding: show
+---
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+require(knitr)
+try(knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file()))
+
+try(knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file()))
+
+
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+
+```
+
+# Data
+
+Read in the data from Excel
+
+```{r}
+opt <- read_excel("/Users/vanes/Documents/SCHOOL/comp_bio/BIOST2041/Data/OPT_Study_Person-level_Data.xlsx")
+head(opt)
+count(opt)
+```
+
+NOTE: the variable names contain spaces. When working with these in R, you need to put the variable name in tick marks. See the example of this below.
+
+```{r}
+# here I need to include tick marks for the variable "Birth outcome" because of the space in the name:
+xtabs(~ `Birth outcome`, data = opt)
+
+```
+
+Filter the data set to only live births
+
+```{r}
+# filter data 
+filt <- opt %>%
+  filter(`Birth outcome` == "Live birth")
+head(filt)
+count(filt)
+```
+
+# Part 1
+
+1\. Examine the relationship between each of the variables listed below and treatment group assignment (variable: *Group*). Include
+
+(i) an appropriate numerical summary,
+
+(ii) an appropriate graphical summary, and
+
+(iii) an appropriate statistical test to examine the relationship between each variable and treatment group.
+
+**Justify your choice** of statistical test for each one (hint: think about the types of variables you have and the conditions used for the statistical tests we've learned this semester).
+
+-   Geographic area of clinic site (variable *Clinic*) by treatment group (1 pt)
+
+-   Pregnant participant's age at baseline (variable *Age*) by treatment group (1 pt)
+
+-   Pregnant participant's education level at baseline (variable *Education*) by treatment group (1 pt)
+
+-   Pregnant participant's body mass index at baseline (variable *BMI*) by treatment group (1 pt)
+
+## 1. Associations with treatment group assignment
+
+### i. Clinic site by treatment group
+
+```{r}
+# variables are Group and Clinic for this chunk
+  # Clinic: categorical 
+  # Group: binary
+  
+# numerical summary 
+# filt %>%
+#   count(`Clinic`, `Group`) %>%
+#   group_by(`Clinic`) %>%
+#   mutate(prop = n / sum(n))
+counts <- xtabs(~ `Clinic` + `Group`, data = filt)
+counts
+# table of  proportions
+counts %>% prop.table()
+
+# graphical (visual) summary
+  # stacked bar plot 
+ggplot(filt, aes(x = `Clinic`, fill = `Group`)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    title = "Clinic site by treatment group"
+  )
+
+# statistical test
+  # chi-square test
+chisq.test(counts)
+
+
+```
+
+[Justification of test]{.underline}: We are testing whether distribution of treatment vs control differs across clinic sites. Clinic site and Group are both categorical variables, so I decided to use a chi-squared test of independence. It is a large sample size, and the counts exceed chi square conditions.
+
+### ii. Age by treatment group
+
+```{r}
+# variables are Group and Age for this chunk
+  # Age: continious
+  # Group: binary 
+
+# numerical summary 
+filt %>%
+  group_by(`Group`) %>%
+  summarize(
+    n = n(),
+    mean = mean(`Age`, na.rm = TRUE),
+    sd = sd(`Age`, na.rm = TRUE),
+    median = median(`Age`, na.rm = TRUE),
+    IQR = IQR(`Age`, na.rm = TRUE),
+    min = min(`Age`, na.rm = TRUE),
+    max = max(`Age`, na.rm = TRUE)
+  )
+
+# graphical (visual) summary
+  # boxplot
+ggplot(filt, aes(x = `Group`, y = `Age`, fill = `Group`)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribution of Age by treatment group"
+  ) +
+  theme_minimal()
+
+# QQ plot to check normality 
+ggplot(filt, aes(sample = `Age`)) +
+  stat_qq() +
+  stat_qq_line() +
+  facet_wrap(~ `Group`)
+
+# statistical test
+t.test(`Age` ~ `Group`, data = filt)
+
+```
+
+[Justification of test]{.underline}: We are comparing ages of participants between treatment groups. Since age is continuous and Group is binary, my options were a t-test if the distribution was normal and a Wilcoxon rank-sum test if the distribution was not. The QQ plot was normal enough (though slightly right skewed), so I chose a two sample t-test over a Wilcoxon rank-sum test.
+
+### iii. Education by treatment group
+
+```{r}
+# variables are Group and Education for this chunk
+  # Education: categorical (ordinal)
+  # Group: binary 
+
+# numerical summary 
+counts2 <- xtabs(~ `Education` + `Group`, data = filt)
+counts2
+# table of  proportions
+counts2 %>% prop.table()
+
+# graphical (visual) summary
+  # stacked bar plot
+ggplot(filt, aes(x = `Education`, fill = `Group`)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    title = "Education by treatment group"
+  )
+
+# statistical test
+chisq.test(counts2)
+
+
+```
+
+[Justification of test]{.underline}: We are testing whether the distribution of education levels differs between treatment groups. Since both variables were categorical, and the sample sizes and the expected counts were both large enough, I once again used a Chi-squared test for independence.
+
+### iv. BMI by treatment group
+
+```{r}
+
+# variables are Group and BMI for this chunk
+  # BMI: continious
+  # Group: binary
+
+# numerical summary 
+filt %>%
+  group_by(`Group`) %>%
+  summarize(
+    n = sum(!is.na(`BMI`)),
+    mean = mean(`BMI`, na.rm = TRUE),
+    sd = sd(`BMI`, na.rm = TRUE),
+    median = median(`BMI`, na.rm = TRUE),
+    IQR = IQR(`BMI`, na.rm = TRUE),
+    min = min(`BMI`, na.rm = TRUE),
+    max = max(`BMI`, na.rm = TRUE)
+  )
+
+# graphical (visual) summary
+  # stacked bar plot 
+ggplot(filt, aes(x = `Group`, y = `BMI`, fill = `Group`)) +
+  geom_boxplot() +
+  labs(
+    title = "BMI by treatment group"
+  ) +
+  theme_minimal()
+
+# QQ plot to check normality
+ggplot(filt, aes(sample = `BMI`)) +
+  stat_qq() +
+  stat_qq_line() +
+  facet_wrap(~ `Group`)
+  # looks pretty right skewed 
+
+# statistical test
+wilcox.test(`BMI` ~ `Group`, data = filt)
+
+```
+
+[Justification of test]{.underline}: We are comparing BMI between treatment groups. BMI is a continous variable, and Group is binary. I once again ran a QQ plot for normality, and this time it shows that the data is quite right-skewed. Therefore we should use the nonparametric Wilcoxon rank-sum test over the parametric t-test.
+
+## 2. Summary
+
+**Summarize your findings from the above explorations in a brief paragraph that includes relevant effect estimates, p-values, and confidence intervals (if applicable) to support your statements.**
+
+[Response]{.underline}: There was no meaningful differences between the treatment and control groups across all examined characteristics. Clinic site distributions do not differ by treatment (X2 = 0.14368, p-value = 0.9861). The mean age was almost identical between treatment groups (25.9 vs 26.1 years) and the two sample t-test also found no significant difference (p-value = 0.7169, 95% CI (-0.9220802, 0.6344391). The distribution of education levels were also similar across groups (X2 = 0.45867, p-value = 0.7951). The median BMI was 26 in both groups and there was no sigificant difference between the BMI of the groups (p-value = 0.6684). Overall these results show that the randomization of treatment vs control groups was very successful, with the characteristics of both groups being very similar to nearly identical.
+
+## 3. Study design considerations
+
+**How do you think the study design impacted the results seen in part 1?**
+
+[Response]{.underline}: This study used stratified randomization, meaning participants were sorted into subgroups and then randomly selected from each group. By randomizing within each subgroup, both groups researchers ensure that both treatment groups have a similar proportion of participants from each subgroup. The results seen in part 1 prove that these researchers performed an effective stratified sampling, as the proportions of baseline characteristics are very similar between the two groups.
+
+## 4. Implications of part 1 for part 2
+
+**Comment on how these findings may impact the conclusions you will be able to draw in part 2. Which, if any, have the potential to be confounders of the relationship between treatment and gestational age?**
+
+[Response]{.underline}: None of the baseline characteristics examined differed significantly between the control and treatment group, so I would say none of these variables are likely to confound the relationhip between treatment and gestational age. Both groups are very balanced, so any differences found in gestational age in Part 2 are far more likely to be attributable to treatment as opposed to any confounding variables.
+
+# Part 2: Primary outcome analysis
+
+1\. Examine the relationship between each of the variables listed below and the primary outcome: gestational age (variable: \`*GA at outcome\`*). Include
+
+(i) an appropriate numerical summary,
+
+(ii) an appropriate graphical summary, and
+
+(iii) an appropriate statistical test to examine the relationship between each variable and gestational age.
+
+**Justify your choice** of statistical test for each one (hint: think about the types of variables you have and the conditions used for the statistical tests we've learned this semester)
+
+-   Gestational age by pregnant participant's age at baseline (variable *Age*) (2 pts)
+
+-   Gestational age by geographic area of clinic site (variable *Clinic*) (2 pts)
+
+-   Gestational age by treatment group (variable *Group*) (2 pts)
+
+2\. **Summarize your findings** from the above explorations in a brief paragraph that includes relevant effect estimates, p-values, and confidence intervals (when applicable) to support your statements.  (1 pt)
+
+## 1. Associations with primary outcome
+
+### i. Gestational age by participants age
+
+```{r}
+# variables are `GA at outcome` and Age for this chunk
+  # GA: continous
+  # Age: continous 
+
+# numerical summary 
+summary(filt$`GA at outcome`)
+summary(filt$Age)
+
+# graphical (visual) summary
+  # scatterplot + regression line 
+ggplot(filt, aes(x = Age, y = `GA at outcome`)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm") +
+  labs(
+    title = "Gestational age by participants age"
+  ) +
+  theme_minimal()
+
+# statistical test
+cor(filt$Age, filt$`GA at outcome`, method = "pearson")
+print('more detailed?')
+cor.test(filt$`GA at outcome`, filt$Age)
+```
+
+[Justification of test]{.underline}: We are assessing the linear association between Gestational Age and Age. Both Age and Gestational age at outcome are continuous variables, so I decided to choose Pearson’s correlation. I chose this over linear regression because linear regression 1) assumes causality which we do not, and 2) predicts one variable based on the other, while our intent here is only to look at association. Therefore Pearson's coeffecient, which looks for a linear relationship between two variables, would be the better choice.
+
+### ii. Gestational age by clinic site
+
+```{r}
+# variables are `GA at outcome` and Clinic for this chunk
+  # GA: continious
+  # Clinic: categorical 
+
+# numerical summary 
+filt %>%
+  group_by(Clinic) %>%
+  summarize(
+    n = n(),
+    mean = mean(`GA at outcome`, na.rm = TRUE),
+    sd = sd(`GA at outcome`, na.rm = TRUE),
+    median = median(`GA at outcome`, na.rm = TRUE),
+    IQR = IQR(`GA at outcome`, na.rm = TRUE),
+    min = min(`GA at outcome`, na.rm = TRUE),
+    max = max(`GA at outcome`, na.rm = TRUE)
+  )
+
+# graphical (visual) summary
+  # boxplot
+ggplot(filt, aes(x = Clinic, y = `GA at outcome`, fill = Clinic)) +
+  geom_boxplot() + 
+  labs(
+    title = "Gestational age by clinic site"
+  ) + 
+  theme_minimal()
+
+# QQ plot to check normality 
+ggplot(filt, aes(sample = `GA at outcome`)) +
+  stat_qq() +
+  stat_qq_line() +
+  facet_wrap(~ `Clinic`)
+
+# statistical test
+# anova_model <- lm(`GA at outcome` ~ Clinic, data = filt)
+# summary(anova_model)
+# # anova table
+# anova(anova_model)
+
+kruskal.test(`GA at outcome` ~ Clinic, data = filt)
+```
+
+[Justification of test:]{.underline} We are testing if the mean gestational age is the same across all 4 clinic sites. GA is a continuous variable and Clinic is categorical, so I chose to do a Kruskal-Wallis test– since from the QQ plots, GA is very left-skewed (this is as opposed to an ANOVA test if the samples were normally distributed) and Kruskal-Wallis does not assume normality.
+
+### iii. Gestational age by treatment group
+
+```{r}
+# variables are `GA at outcome` and Group for this chunk
+  # GA: continous
+  # Group: binary 
+
+# numerical summary 
+filt %>%
+  group_by(Group) %>%
+  summarize(
+    n = n(),
+    mean = mean(`GA at outcome`, na.rm = TRUE),
+    sd = sd(`GA at outcome`, na.rm = TRUE),
+    median = median(`GA at outcome`, na.rm = TRUE),
+    IQR = IQR(`GA at outcome`, na.rm = TRUE),
+    min = min(`GA at outcome`, na.rm = TRUE),
+    max = max(`GA at outcome`, na.rm = TRUE)
+  )
+
+# graphical (visual) summary
+  # boxplot
+ggplot(filt, aes(x = Group, y = `GA at outcome`, fill = Group)) +
+  geom_boxplot() +
+  labs(
+    title = "Gestational Age at Outcome by Treatment Group"
+  ) +
+  theme_minimal()
+
+# QQ plot to check normality 
+ggplot(filt, aes(sample = `GA at outcome`)) +
+  stat_qq() +
+  stat_qq_line() +
+  facet_wrap(~ `Group`)
+
+# statistical test
+wilcox.test(`GA at outcome` ~ Group, data = filt)
+
+```
+
+[Justification of test]{.underline}: We are comparing gestational age between groups. GA is a continuous variable and treatment groups are binary. From the QQ plots we can see that GA is quite left-skewed, so we should run a nonparametric test like the Wilcoxon rank-sum test here, as it does not assume normality and compares the medians.
+
+## 2. Summary of Part 2
+
+**What did you find? Summarize your findings from the above explorations in a brief paragraph that includes relevant effect estimates, p-values, and confidence intervals (when applicable) to support your statements.**
+
+[Response]{.underline}: It seems that participant age is not meaningfully correlated with gestational age (p-value = 0.1767, 95% CI (-0.11724755, 0.02167209), correlation = -0.04801994). Gestational age did vary significantly across clinic sites (X\^2= 32.036, p-value = 5.142e-07). However, it did not significantly differ between treatment groups (p-value = 0.7823). Overall, these results indicate that gestational age was associated with clinic site but not with participant age or periodontal treatment assignment.
+
+# Session Information
+
+```{r}
+sessionInfo()
+```

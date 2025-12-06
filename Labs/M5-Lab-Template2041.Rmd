@@ -1,0 +1,228 @@
+---
+title: "M5 Lab Template"
+author: "Vanessa Hong"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    number_sections: false
+    toc_depth: '3'
+    code_folding: show
+---
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+require(knitr)
+try(knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file()))
+
+try(knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file()))
+
+
+```
+
+```{r, message=FALSE}
+library(tidyverse)
+library(readxl)
+```
+
+# Data Management
+
+```{r}
+# load data from xlsx file
+hypox <- read_excel("C:/Users/vanes/Documents/SCHOOL/comp_bio/BIOST2041/Data/hypoxia.xlsx")
+head(hypox)
+
+```
+
+# Part 1: One proportion
+
+## Z-test for one proportion
+
+**1. Perform a one-sample Z test using a 0.05 significance level to see if the prevalence of coronary heart disease (CAD) in this population differs from the U.S. prevalence of 7.2%.**
+
+```{r}
+# table of counts 
+xtabs(~ CAD, data = hypox)
+
+# table of  proportions
+xtabs(~ CAD, data = hypox) %>% prop.table()
+
+# conditions of test
+# checking conditions for z test for p0=0.05
+# n(p0) >= 5 and n(1 - p0) >= 5
+281 * 0.072 >= 5 ; 281 * (1 - 0.072) >= 5 # true 
+
+# run test
+# hint: prop.test(x = #successes, n = #trials, p = null_proportion, alternative = alternative_direction, correct = F)
+prop.test(x = 26, n = 281, p = 0.072, alternative = "two.sided", correct = FALSE)
+
+
+
+```
+
+[Response here:]{.underline}
+
+-   [a table of CAD counts and a table of proportions:]{.underline} 255 unaffected + 26 affected = 281 total.
+
+-   [descriptions of the null and alternative hypotheses in **words** (not symbols):]{.underline} H0: The prevalence of CAD in this bariatric surgery population is the same as the U.S. prevalence of 7.2%. HA: The prevalence of CAD in this population is different from the U.S. prevalence of 7.2%.
+
+-   [check the conditions to be able to use the test:]{.underline} Assumed indepedence. The sample size is great enough to use this test. (n(p0) \>= 5 and n(1 - p0) \>= 5 are true).
+
+-   [the value of the Z test statistic (careful here!):]{.underline} X-squared = 1.772, sqrt(1.772) = Z = 1.332.
+
+-   [the p-value]{.underline}: p-value = 0.1831.
+
+-   [your decision about the null hypothesis (reject/fail to reject)]{.underline}: Fail to reject the null. 
+
+-   [a conclusion about the hypothesis test]{.underline}: We do not have enough evidence to conclude that the prevalence of CAD in this population is different from the U.S. prevalence of 7.2%. 
+
+-   [an interpretation of the corresponding confidence interval (you may use the confidence interval provided in the prop.test function)]{.underline}: 95% CI = (0.06392533, 0.13211867). We are 95% confident that the true prevalence of CAD in this bariatric surgery population lies between 6.4% and 13.2%. This interval includes 7.2% (0.072), so it is consistent with failing to reject the null hypothesis.
+
+## Binomial Test
+
+**Run the exact binomial test for the same null and alternative hypotheses. Report the p-value and confidence interval from this test. Is this consistent with the result we saw from the parametric test above?**
+
+```{r}
+# binomial test
+binom.test(x = 26, n = 281, p = 0.072, alternative = "two.sided")
+```
+
+[Response]{.underline}: Yes. For this binomial test, p-value = 0.2024, which is even higher than the result in the Z-test (Z-test p-value = 0.1831). The 95% is (0.06133404, 0.13263144), which also contains the value of 0.072. This also fails to reject the null hypothesis and shows that we do not have enough evidence to conclude that the prevalence of CAD in this population is different from the U.S. prevalence of 7.2%. 
+
+# Part 2: Two proportions
+
+## Z-test for two proportions
+
+**Test for difference in CAD proportion by sex assigned at birth. Perform a two-sample Z test using an 0.05 significance level to see if the rate of coronary artery disease differs by sex assigned at birth (variable name: female).**
+
+```{r}
+# table of counts 
+xtabs(~ CAD + Female, data = hypox)
+
+# table of  proportions
+xtabs(~ CAD + Female, data = hypox) %>% prop.table() 
+
+# conditions of test
+# Assumed random sampling and independent
+# is binomial distribution
+# np and n(1-p) > 5. 
+
+# run test
+# hint: prop.test(x = c(x1, x2), n = c(n1, n2), correct = F, alternative = alternative_hypothesis)
+prop.test(x = c(15, 11), n = c(80, 201), correct = F, alternative = "two.sided")
+
+```
+
+[Response here:]{.underline}
+
+-   [a table of counts and proportions (separate tables) of CAD by sex:]{.underline} 80 males and 201 females.
+
+-   [descriptions of the null and alternative hypotheses in **words** (not symbols]{.underline}): H0: The prevalence of CAD is the same in males and females. HA: The prevalence of CAD differs between males and females.
+
+-   [check the conditions to be able to use the test:]{.underline} Assumed random sampling and independent. Both proportions have binomial distribution. np and n(1-p) \> 5.
+
+-   [the value of the Z test statistic (careful here!)]{.underline}: X-squared = 12.014, sqrt(12.014) = Z = 3.47.
+
+-   [the p-value]{.underline}: p-value = 0.0005279.
+
+-   [your decision about the null hypothesis (reject/fail to reject):]{.underline} Reject the null hypothesis.
+
+-   [a conclusion about the hypothesis test]{.underline}: We reject the null and conclude that the prevalence of CAD differs between males and females. Proportion in males: 18.75%, females: 5.47%.
+
+-   [an interpretation of the corresponding confidence interval:]{.underline} 95% CI: (0.04164759, 0.22389967). We are 95% confident that the true difference in CAD prevalence between males and females is between 4.2% and 22.4%. This interval does not include 0, supporting the conclusion that CAD is more common (or at least differs) in males than females.
+
+## Odds ratio
+
+**Odds ratio of having CAD for female compared to male (sex assigned at birth). Calculate and interpret the odds ratio of having CAD for female participants compared to male participants.**
+
+```{r}
+# odds ratio
+# hint: you can use your table of counts or proportions for this
+
+# affected odds of males: 
+M_aff <- 16/65
+# affected odds of females:
+F_aff <- 11/190
+
+# odds ratio:
+F_aff/M_aff # 0.2351974
+```
+
+[Interpretation:]{.underline} The odds of having CAD for female compared to male is 0.2351974. Since OR \< 1, CAD is less likely to occur in females than in males– it is around 0.23x more likely, or 75% less likely, to have CAD for females compared to males.
+
+# Part 3: contingency table
+
+## Chi-squared test
+
+**Test for association between AHI and high mean arterial pressure (highMAP).**
+
+**Create a new variable** called highMAP that is 0 if the mean arterial pressure during surgery (\`TWA MAP\`) is less than 100 and is 1 if the mean arterial pressure during surgery (\`TWA MAP\`) is greater than or equal to 100. Note: if you are running into errors making this new variable with the \`TWA MAP\` variable, make sure you're using backticks in the variable name \`TWA MAP\` (rather than 'TWA MAP' or "TWA MAP"). 
+
+```{r}
+# make new variable to use in this section
+# highMAP = 0 if `TWA MAP` <100 and highMAP = 1 otherwise
+hypox$highMAP <- ifelse(hypox$`TWA MAP` < 100, 0, 1)
+
+head(hypox)
+```
+
+**Use this new variable to perform a chi-squared test of independence on the association between Apnea/Hypoxia Index (AHI) and high MAP using a significance level of 0.05.**
+
+```{r}
+# table of counts 
+# Cross-tabulation
+counts <- xtabs(~ AHI + highMAP, data = hypox)
+counts
+
+# table of  proportions
+counts %>% prop.table()
+
+# conditions of test
+# independent observations 
+# expected counts >= 5
+
+# run test
+# hint: save a table of counts tbl = xtabs(~ var1 + var2, data = data_name)
+# then use the chisq.test() function on the saved table
+chisq.test(counts)
+
+```
+
+[Response here:]{.underline}
+
+-   [a table of high MAP counts and proportions (separate tables) by AHI]{.underline}
+
+-   [descriptions of the null and alternative hypotheses in **words** (not symbols):]{.underline} H0: There is no association between AHI category and high MAP, the proportion of high MAP is the same across all AHI categories. HA: There is an association between AHI category and high MAP, the proportion of high MAP differs in at least one AHI category.
+
+-   [check the conditions to be able to use the test:]{.underline} Observations are independent, and all cell counts are \>= 5.
+
+-   [the value of the chi-squared test statistic:]{.underline} X-squared = 3.8392
+
+-   [the p-value:]{.underline} p-value = 0.2794 
+
+-   [an interpretation of the p-value]{.underline}: The p-value at 0.2794 represents the possibility of observing a X-squared statistic as extreme as 3.832 if there was no association between AHI category and high MAP.
+
+-   [your decision about the null hypothesis (reject/fail to reject)]{.underline}: Fail to reject at alpha = 0.05.
+
+-   [a conclusion about the hypothesis test]{.underline}: Fail to reject null, there is not enough evidence to conclude that there is an association between AHI category and high MAP, or that the proportion of high MAP differs in at least one AHI category.
+
+## Fisher's test
+
+**Also, perform a Fisher's exact test and report the p-value. Does this change the overall conclusion from above?**
+
+```{r}
+# run fisher's test
+# hint: save a table of counts tbl = xtabs(~ var1 + var2, data = data_name)
+# then use the fisher.test() function on the saved table
+fisher.test(counts)
+```
+
+[Response here]{.underline}: This is consistent with our Chi-squared test. The p-value here is 0.2541, which is also much higher than our alpha threshold of 0.05. Thus we can also conclude from the Fisher's test that we fail to reject null. There is not enough evidence to conclude that there is an association between AHI category and high MAP, or that the proportion of high MAP differs in at least one AHI category.
+
+# Session Information
+
+```{r}
+sessionInfo()
+```

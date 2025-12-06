@@ -1,0 +1,279 @@
+---
+title: "Recitation 12: Inference for contingency tables"
+subtitle: "Solutions"
+author: "Haley Grant"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    number_sections: no
+    toc_depth: '4'
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+```{r}
+library(tidyverse)
+
+```
+
+# Data Import
+
+The following data include the outcomes of two diagnostic tests for cancer. All individuals in the data have cancer of different types and stages. We are interested to know if one test outperforms the other, and if performance differs by cancer type and stage.
+
+```{r}
+# import data
+diagnostics = read_csv("Data/cancer_diagnostics.csv")
+
+```
+
+# Are all stages equally likely?
+
+We first want to know if all cancer stages are equally likely in our population.
+
+## Table of counts and proportions
+
+**Make a table of counts and proportions of cancer cases by stage.**
+
+```{r}
+# table of counts
+xtabs(~ stage, data = diagnostics) %>% addmargins()
+
+# table of proportions
+xtabs(~ stage, data = diagnostics) %>% prop.table()
+```
+
+## Hypotheses
+
+**What are the null and alternative hypotheses for this test?**
+
+Null : All 3 stages are equally likely (probability 1/3)
+
+Alternative : Not all 3 stages are equally likely (at least one isn't 1/3)
+
+## Conditions
+
+**What are the conditions for this test? Check them here.**
+
+All expected counts (under the null) should be at least 5.
+
+```{r}
+# check conditions
+# null-hypothesized proportions (all 1/3)
+p0 = c(1/3, 1/3, 1/3)
+# total sample size
+n = 998
+# expected counts
+n * p0
+
+
+```
+
+## Test for equal proportions of stages
+
+**Run the test to determine if all stages are equally likely in the population and show the output.**
+
+```{r}
+# run test
+tbl1 <- xtabs(~ stage, data = diagnostics)
+chisq.test(tbl1, correct = F)
+
+# other way to get expected counts
+expected_counts = chisq.test(tbl, correct = F)$expected
+# observed counts
+tbl1
+
+# test stat = sum((expected - observed)^2 / expected)
+Q = sum((expected_counts - tbl1)^2 / expected_counts)
+
+# p-value by hand
+# probability a chi-squared(1) is as large or larger than our observed test statistic
+pchisq(Q, df = 2, lower.tail = F)
+```
+
+## Test statistic
+
+**Describe in words what the test statistic in the output above measures.**
+
+Response: Differences between observed counts and expected counts under the null
+
+## Interpret test results
+
+**Interpret the results of the test above.**
+
+Interpretation: Reject null; conclude not all cancer stages equally likely.
+
+# Compare test 1 and test 2
+
+## Table of outcomes
+
+**Make a table of counts showing the breakdown of test results for test 1 and test 2.**
+
+```{r}
+# table of counts
+xtabs(~ test1 + test2, data = diagnostics) %>% addmargins()
+
+```
+
+## Check conditions
+
+**What are the conditions of this test? Are they satisfied?**
+
+Response:
+
+Conditions:
+
+-   Paired observations of binary outcomes
+
+-   b + c at least 10 (some people say 25); b+c = 314 + 25
+
+## Comparing test 1 and test 2
+
+**Run a test to compare the performance of test 1 and test 2 based on this sample. Show the output here.**
+
+```{r}
+# test comparing test 1 to test 2
+tbl2 <- xtabs(~ test1 + test2, data = diagnostics) 
+mcnemar.test(tbl2, correct = F)
+
+# test statistic by hand
+Q2 = (314 - 25)^2 / (314 + 25)
+# p-value by hand
+pchisq(Q2, df = 1, lower.tail = F)
+
+# this is equivalent to a one-sample test for proportions using the discordant pairs and p0 = 0.5
+prop.test(x = 25, n = (314 + 25), p = 0.5, correct = F)
+
+# calculate sensitivities 
+mean(diagnostics$test1 == "Positive") 
+mean(diagnostics$test2 == "Positive") 
+
+# WRONG!
+# prop.test(x = c(621, 332), n = c(998, 998))
+```
+
+## Test statistic
+
+**Describe in words what the test statistic in the output above measures.**
+
+Response: Differences between cell c and cell b (the discordant pairs). The idea here is that if the null hypothesis is true that the two tests are equally likely to come back positive (or negative), then we would expect the discordant pairs to be roughly equal. If they are very different, this suggests the two tests differ in their outcomes.
+
+## Interpretation of p-value
+
+**Interpret the p-value for the test**
+
+Interpretation: If the two tests are actually equivalent, the probability of seeing a difference in the discordant pairs as extreme or more extreme as what we saw (314 vs 25) is 1.6 x 10\^-55
+
+## Conclusion of test
+
+**What is the conclusion of the test? Does one test perform better than the other? If yes, which one?**
+
+Conclusion: Reject the null; the two tests seem different. Test 1 is better (sensitivity of 62% vs 33%).
+
+# Compare test performance by stage
+
+We now want to know if the diagnostic test's performance differs by cancer stage.
+
+## Table of counts and proportions
+
+**Make a table of counts and a table of proportions to show the distribution of test results by cancer stage.**
+
+```{r}
+# table of counts
+xtabs(~ stage + test1, data = diagnostics) %>% addmargins()
+
+# table of proportions
+# here I used margin = 1 because I want the conditional proportions fixing the rows (P(test + | stage) and P(test - | stage))
+xtabs(~ stage + test1, data = diagnostics) %>% prop.table(margin = 1)
+```
+
+## Hypotheses
+
+**What are the null and alternative hypotheses for this test?**
+
+Null : proportion of +/- tests is the same across all cancer stages
+
+Alternative : proportion of +/- tests is not the same across all cancer stages
+
+## Conditions
+
+**What are the conditions for this test? Check them here.**
+
+Conditions:
+
+Expeted counts all at least 5
+
+```{r}
+# writing a function to calculate expected counts from a contingency table
+expected_counts = function(tbl){
+  r = nrow(tbl) ; N = sum(tbl)
+  matrix(rowSums(tbl), nrow = r) %*% matrix(colSums(tbl),nrow = 1) / N
+}
+
+```
+
+```{r}
+# check conditions
+# expected + counts
+(621 / 998) * c(197, 495, 306)
+# expected - counts
+(377 / 998) * c(197, 495, 306)
+
+# using the chisq.test function to get expected counts:
+tbl3 <- xtabs(~ stage + test1, data = diagnostics)
+chisq.test(tbl3, correct = F)$expected
+
+# using function I wrote above
+expected_counts(tbl3)
+
+```
+
+## Running the test
+
+**Run a test to compare the performance of the test across cancer types. Show the output here.**
+
+```{r}
+# test for differences in test results by stage
+# same table as chunk above
+tbl3 <- xtabs(~ stage + test1, data = diagnostics)
+chisq.test(tbl3, correct = F)
+
+# test stat by hand
+# expected counts
+expected = chisq.test(tbl3, correct = F)$expected
+# observed counts
+obs = tbl3
+
+# chi-squared test statistic
+Q3 = sum((obs - expected)^2 / expected)
+Q3
+# p-value by hand
+# df = (3-1)*(2-1) = 2
+pchisq(q = Q3, df = 2, lower.tail = F)
+```
+
+## Test statistic
+
+**Describe in words what the test statistic in the output above measures.**
+
+Response: Differences between expected (under null that there is no association between cancer stage and test outcome) and observed counts across the table.
+
+## Interpretation of p-value
+
+**Interpret the p-value for the test**
+
+Interpretation: If there were really no difference in test performance across cancer stage, the probability of seeing differences as large or larger than what we saw is 2.06 x 10\^-6 (small).
+
+## Conclusion of test
+
+**What is the conclusion of the test?**
+
+Conclusion: Reject null; seems like test performance depends on cancer stage (increased sensitivity with later stage cancers).

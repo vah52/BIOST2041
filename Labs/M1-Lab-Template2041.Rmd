@@ -36,7 +36,7 @@ Import the data:
 ```{r}
 
 # read in data
-ra <- read_csv("C:/Users/vanes/Documents/SCHOOL/comp bio/BIOST2041/Data/ArthritisTreatment.csv")
+ra <- read_csv("C:/Users/vanes/Documents/SCHOOL/comp_bio/BIOST2041/Data/ArthritisTreatment.csv")
 
 # Take a look at the data (just top few rows)
 head(ra)

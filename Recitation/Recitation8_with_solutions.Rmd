@@ -1,0 +1,236 @@
+---
+title: "Recitation 8: ANOVA Solutions"
+author: "Haley Grant"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    number_sections: no
+    toc_depth: '4'
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file())
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+# Set-up
+
+## Load packages
+
+```{r}
+library(tidyverse)
+if(!require(emmeans)){install.packages("emmeans")
+  library(emmeans)} #this line installs the package only if you don't already have it installed
+```
+
+## Import data
+
+The data we're working with today are gene expression data among individuals diagnosed with cancer. We're interested if the expression of these genes differs by cancer type. There are three columns in the data:
+
+-   gene1: normalized gene expression of gene 1 across patients
+-   gene2: normalized gene expression of gene 2 across patients
+-   cancer: type of cancer
+
+```{r}
+# read in data
+genes = read_csv("Data/microarray_cancer.csv")
+
+```
+
+# Gene 1
+
+## Types of Variables
+
+**What type of variable is gene1? What type of variable is cancer?**
+
+gene1: quantitative (continuous)
+
+cancer: categorical (nominal)
+
+## Visualization
+
+**Provide a numerical summary and visualization to show the relationship between cancer type and gene 1 expression**
+
+```{r}
+# numerical summary
+genes %>%
+  group_by(cancer) %>%
+  summarise(n = n(),
+            sample_mean = mean(gene1),
+            sample_sd = sd(gene1),
+            sample_var = var(gene1))
+
+# visualization 
+genes %>%
+  ggplot(aes(x = cancer, y = gene1, fill = cancer)) + 
+  geom_boxplot(alpha = .5) + 
+  theme_bw() + 
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+  labs(x = "Cancer Type", y = "Normalized Gene Expression for Gene 1")
+
+```
+
+We see some group differences here. It looks like there are some differences between groups. It seems like some groups have higher gene expression on average than others (indicating we might end up rejecting the null hypothesis for our ANOVA F test). Unfortunately, it also looks like we have some differences in variability across groups, which would violate the ANOVA assumption of equal variances.
+
+## Conditions
+
+**List then check the conditions to run ANOVA. Do they appear to be satisfied?**
+
+Conditions:
+
+-   Independent groups
+-   Random sample
+-   N \> 30 in each group or normal distribution for outcome variable in each group
+-   Equal variances across groups
+
+```{r}
+# check conditions
+table(genes$cancer)
+
+genes %>%
+  ggplot(aes(sample = gene1)) + 
+  geom_qq() + 
+  geom_qq_line() + 
+  facet_wrap( ~ cancer) + 
+  theme_bw()
+
+genes %>%
+  group_by(cancer) %>%
+  summarise(n = n(),
+            sample_var = var(gene1))
+
+
+```
+
+It looks like we could have some problems here. The sample sizes are generally pretty small. The data don't look egregiously not normal but it can be a little hard to tell this in small samples so we might want to be careful here. Another issue is the equal variance assumption. It doesn't seem particularly plausible to assume these observations came from populations with the same variance, given the fairly extreme differences in observed sample variances (though again, we do have small sample sizes so this could just be due to sampling). I might decide to pivot to a nonparametric test here in practice, but we'll go ahead and run ANOVA for illustrative purposes anyway :)
+
+## Null and alternative
+
+**Write down the null and alternative hypothesis for ANOVA**
+
+Null: all groups (cancer types) have the same underlying population average expression levels for gene 1. \* this would tell us there is no association between cancer type and gene expression (knowing which cancer type someone has doesn't tell us anything informative about gene 1 expression).
+
+Alternative: *at least one* cancer type has a different average gene 1 expression level in the population. \* this would tell us there is an association between cancer type and gene expression (knowing which cancer group a person came from tells us something about the gene expression level to expect).
+
+## Run ANOVA
+
+**Run the ANOVA model and provide the analysis of variance table.**
+
+```{r}
+# fit model
+anova_fit <- lm(gene1 ~ cancer, data = genes)
+
+# anova table
+anova(anova_fit)
+
+```
+
+## F statstic
+
+**Interpret the F-statistic for this test.**
+
+Interpretation: between group variability is large relative to within group variability (I know this because the p-value is small).
+
+## P-value
+
+**Interpret the p-value for this test.**
+
+Interpretation: The probability of observing an F statistic (between/ within group variability) as or more extreme (as large or larger) as 7.05 (our F statistic) if the null had actually been true.
+
+This means that if the groups all truly have the same mean in the population, the probability of seeing between group variability this large (relative to the amount of within-group variability) or larger is quite small ($5 \times 10^{-11}$). That is, our sample seems very extreme if the null is true.
+
+## Conclusion
+
+**What is the conclusion of this test?**
+
+Conclusion: Reject the null. We have enough evidence to claim there is at least one cancer type for which gene 1 expression differs from the rest (on average). It looks like cancer type is associated with gene expression for gene 1.
+
+# Gene 2
+
+## Visualization
+
+**Provide a numerical summary and visualization to show the relationship between cancer type and gene 2 expression**
+
+```{r}
+# numerical summary
+genes %>% 
+  group_by(cancer) %>%
+  summarise(n = n(),
+            sample_mean = mean(gene2),
+            sample_sd = sd(gene2),
+            sample_var = var(gene2))
+
+# visualization
+genes %>% 
+  ggplot(aes(x = cancer, y = gene2)) + 
+  geom_boxplot() + 
+  theme_bw()
+
+```
+
+This time the boxplots look more like they're centered around the same value. We'll see how this impacts our ANOVA procedure.
+
+## Conditions
+
+**Check the conditions to run ANOVA. Do they appear to be satisfied?**
+
+```{r}
+# check conditions
+genes %>%
+  ggplot(aes(sample = gene2)) + 
+  geom_qq() + 
+  geom_qq_line() + 
+  theme_bw() + 
+  facet_wrap(~ cancer)
+
+```
+
+Same issues as above. The data don't look egregiously not normal so even though the sample sizes are small within the groups, we might be alright from a normality perspective. However, we may still have a violation of the equal variance assumption and we should be cautious when interpreting our results.
+
+## Null and alternative
+
+**Write down the null and alternative hypothesis for ANOVA**
+
+Null: all groups (cancer types) have the same underlying population average expression levels for gene 2.
+
+Alternative: *at least one* cancer type has a different average gene 2 expression level in the population.
+
+## Run ANOVA
+
+**Run the ANOVA model and provide the analysis of variance table.**
+
+```{r}
+# fit model
+anova_fit2 <- lm(gene2 ~ cancer, data = genes)
+
+# anova table
+anova(anova_fit2)
+
+```
+
+## F statstic
+
+**Interpret the F-statistic for this test.**
+
+Interpretation: between group variability is not that large relative to within group variability (I know this because the p-value is not particularly small).
+
+## P-value
+
+**Interpret the p-value for this test.**
+
+Interpretation: The probability of observing an F statistic (between/ within group variability) as or more extreme (as large or larger) as 1.4 (our F statistic) if the null had actually been true.
+
+This means that if the groups all truly have the same mean in the population, the probability of seeing between group variability this large (relative to the amount of within-group variability) or larger is not that small (about 0.16). That is, our sample doesn't seem too extreme under the null (at least not extreme enough to reject the null, since the p-value is larger than 0.05).
+
+## Conclusion
+
+**What is the conclusion of this test?**
+
+Conclusion: Fail to reject null. We do not have enough evidence to claim that any of the cancer types differ in their average expression for gene 2.

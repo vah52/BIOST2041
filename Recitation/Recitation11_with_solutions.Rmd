@@ -1,0 +1,360 @@
+---
+title: "Recitation 11: Inference for proportions"
+subtitle: "Solutions"
+author: "Haley Grant"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    number_sections: no
+    toc_depth: '4'
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+# this is a set-up chunk
+# DON'T CHANGE THESE SETTINGS--I'VE SET THEM UP TO MAKE THINGS RUN SMOOTHLY 
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, 
+                      root.dir = rprojroot::find_rstudio_root_file(), warning = F)
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+# Set-up
+
+## Load packages
+
+```{r}
+library(tidyverse)
+if(!require(binom)){install.packages("binom")
+  library(binom)}
+
+```
+
+# The population
+
+The prevalence of cystic fibrosis has been estimated to be about 1 in every 2500 people among those of European descent. Assuming we have about 200,000 people of European descent in Pittsburgh, we would expect there to be about 80 CF cases in Pittsburgh.
+
+Below I have simulated some data for the population of Pittsburgh (of European descent) with one column: an indicator if the individual has CF.
+
+```{r}
+set.seed(1234)
+pa_cf = data.frame(CF = rbinom(n = 200000,size = 1, p = 1/2500 )%>%as.logical())
+
+```
+
+## Visualize/Summarize
+
+Make a table to summarize the distribution of cystic fibrosis and a plot to display the data. Well will treat this as our population.
+
+```{r}
+# Table of counts
+xtabs(~ CF, pa_cf)
+# Table of proportions
+xtabs(~ CF, pa_cf) %>% prop.table()
+
+# Plot
+pa_cf %>%
+  ggplot(aes(x = CF, fill = CF)) + 
+  geom_bar() + 
+  theme_bw()
+
+```
+
+Few few people in this simulated data set have CF (only 89 out of 200,000 people).
+
+# Taking samples
+
+## n = 100
+
+```{r}
+niter = 10000
+samp_props = data.frame(phat = rep(NA,niter))
+
+for(i in 1:niter){
+  samp = sample(pa_cf$CF, size = 100, replace = F)
+  samp_props[i,1] = mean(samp)
+  if(i==1){sample1 = data.frame(CF = samp)}
+}
+
+
+```
+
+### Summarize the first sample
+
+```{r}
+# first sample (table of counts/proportions)
+xtabs(~ CF, sample1)
+
+```
+
+### Visualize sampling distribution
+
+**Make a plot to visualize the sampling distribution of the sample proprtion (phat) from samples of size 100.**
+
+```{r}
+# plot values from samp_props
+samp_props %>%
+  ggplot(aes(x = phat)) + 
+  geom_histogram(binwidth = 0.01) + 
+  theme_bw()
+```
+
+Notice that a normal approximation will not be appropriate here! This is because n\*p is too small (we need the expected number of successes, np, and expected number of failures, n(1-p) to both be at least 5 but we do not here!). The procedures that rely on the normal approximations, such as Wald confidence intervals, will likely give us unreasonable results here.
+
+```{r}
+# actual proportion in simulated population
+p_true = mean(pa_cf$CF) 
+
+# check n * p and n * (1-p) to see if they're at least 5
+p_true * 100 ; (1 - p_true) * 100
+# n * p is too small!
+
+# plot with normal distribution overlay
+samp_props %>%
+  ggplot( aes(x = phat)) + 
+  geom_histogram(binwidth = 0.005, aes(y = ..density..),  color = "black") + 
+  stat_function(fun = dnorm, args = list(mean = p_true, sd = sqrt(p_true * (1 - p_true) / 100)), 
+                color = "red", size = 1) + 
+  theme_bw() +
+  labs(x = "Sample Proportion (phat)", y = "Density") +
+  xlim(min(samp_props$phat)-.01, max(samp_props$phat))
+```
+
+### Confidence intervals
+
+#### Wald CI
+
+**Calculate the 95% confidence interval using the Wald method for the first sample**
+
+```{r}
+# 95% CI
+# hint: binom.confint(x,n, method = ___)
+# choices for method: "asymptotic" "exact"
+binom.confint(x = 0, n = 100, methods = "asymptotic")
+
+```
+
+Notice that the equation for the Wald confidence interval is $\hat{p}\pm z^*_{1-\alpha/2}\sqrt{\frac{\hat{p}(1-\hat{p})}{n}}$. So if we get $\hat{p}=0$ then the estimated standard error for the sampling distribution of the sample proportion will be 0! This is probably unreasonable! We don't want to use this interval!
+
+#### Plus 4 Method
+
+**Calculate the 95% confidence interval using the Plus 4 method (still with Wald CI) for the first sample.**
+
+```{r}
+# 95% CI
+binom.confint(x = 0 + 2, n = 100 + 4, methods = "asymptotic")
+```
+
+Recall the plus 4 method is when we add two extra successes and two extra failures to our sample and re-calculate the Wald confidence interval. This helps in particular when we get a small proportion of either successes or failures.
+
+#### Exact binomial method
+
+```{r}
+# 95% CI
+binom.confint(x = 0, n = 100, methods = "exact")
+
+# what does this tell us?
+# anything in the interval will give us a p-value > alpha for the 2-sided test
+pbinom(q = 0, size = 100, prob = 0.036) * 2
+# anything outside the interval will give a p-value < alpha for the 2-sided test
+pbinom(q = 0, size = 100, prob = 0.0363) * 2
+# the bounds are such that x is the cutoff for alpha/2
+# save p_upper exactly (0.03621669)
+p_upper = binom.confint(x = 0, n = 100, methods = "exact")$upper
+pbinom(q = 0, size = 100, prob = p_upper)
+
+```
+
+This method uses the binomial distribution directly to calculate confidence intervals rather than relying on normal approximations.
+
+#### Coverage probabilities of each
+
+Here I'm showing the proportion of confidence intervals (out of the 10000 samples we drew) that cover the trueproportion in the population for each of the three confidence interval methods:
+
+```{r}
+
+covg = data.frame(Wald = rep(NA,niter), P4 = rep(NA,niter), Exact = rep(NA,niter))
+p_true = mean(pa_cf$CF)
+
+for(i in 1:niter){
+  phat = samp_props$phat[i]
+  x = phat * 100
+  wald = binom.confint(x = x, n = 100, methods = "asymptotic")
+  p4 = binom.confint(x = x+2, n = 104, methods = "asymptotic")
+  exact= binom.confint(x = x, n = 100, methods = "exact")
+  
+  covg[i,] = data.frame(
+    Wald = wald$lower<=p_true & wald$upper >= p_true,
+    P4 = p4$lower<=p_true & p4$upper >= p_true,
+    Exact = exact$lower<=p_true & exact$upper >= p_true
+  )
+}
+
+colMeans(covg)
+
+```
+
+Since we were constructing 95% confidence intervals, in theory these numbers should be close to 0.95. Notice that the Wald confidence interval performs very badly in this case--only 5% of confidence intervals constructed in this way cover the true proportion when this number should be 95%. The exact and plus 4 methods give us slightly higher than nominal (95%) coverage in this case.
+
+## n = 10000
+
+```{r}
+niter = 10000
+samp_props10k = data.frame(phat =rep(NA, niter))
+for(i in 1:niter){
+  samp = sample(pa_cf$CF, size = 10000, replace = F)
+  samp_props10k[i,1] = mean(samp)
+   if(i==1){sample1_10k=data.frame(CF = samp)}
+}
+
+
+```
+
+### Summarize the first sample
+
+```{r}
+# first sample (table of counts/proportions)
+xtabs(~ CF, data = sample1_10k)
+```
+
+### Visualize sampling distribution
+
+```{r}
+# plot phats across samples
+samp_props10k %>%
+  ggplot(aes(x = phat)) + 
+  geom_histogram(binwidth = 1 / 10000) + 
+  theme_bw()
+```
+
+```{r}
+# actual proportion in simulated population
+p_true = mean(pa_cf$CF) 
+
+# check n * p and n * (1-p) to see if they're at least 5
+p_true * 10000 ; (1 - p_true) * 10000
+# n * p is technically still a bit too small but much closer
+
+# plot with normal distribution 
+samp_props10k %>%
+  ggplot( aes(x = phat)) + 
+  geom_histogram(binwidth = 1/10000, aes(y = ..density..),  color = "black") + 
+  stat_function(fun = dnorm, args = list(mean = p_true, sd = sqrt(p_true * (1 - p_true) / 10000)), 
+                color = "red", size = 1) + 
+  theme_bw() +
+  labs(x = "Sample Proportion (phat)", y = "Density")+
+  xlim(min(samp_props10k$phat)-.0005,max(samp_props10k$phat))
+```
+
+Notice here that n\*p is still a bit too small but it is much closer then when n was 100. The normal approximation is still not perfect but it looks a lot more reasonable.
+
+### Confidence intervals
+
+#### Wald CI
+
+**Calculate the 95% confidence interval using the Wald method for the first sample**
+
+```{r}
+# 95% CI
+binom.confint(x = 2, n = 10000, methods = "asymptotic")
+
+```
+
+#### Plus 4 Method
+
+**Calculate the 95% confidence interval using the Plus 4 method (still with Wald CI) for the first sample**
+
+```{r}
+# 95% CI
+binom.confint(x = 2 + 2, n = 10000 + 4, methods = "asymptotic")
+```
+
+### Exact Method
+
+(forgot to include this section in template)
+
+```{r}
+## exact method:
+binom.confint(x = 2 , n = 10000, methods = "exact")
+
+```
+
+#### Coverage probabilities of each
+
+```{r}
+
+covg10k = data.frame(Wald = rep(NA,niter), P4 = rep(NA,niter), Exact = rep(NA,niter))
+
+
+for(i in 1:niter){
+  phat = samp_props10k$phat[i]
+  x = phat * 10000
+  wald = binom.confint(x = x, n = 10000, methods = "asymptotic")
+  p4 = binom.confint(x = x+2, n = 10004, methods = "asymptotic")
+  exact= binom.confint(x = x, n = 10000, methods = "exact")
+  
+  covg10k[i,] = data.frame(
+    Wald = wald$lower<=p_true & wald$upper >= p_true,
+    P4 = p4$lower<=p_true & p4$upper >= p_true,
+    Exact = exact$lower<=p_true & exact$upper >= p_true
+  )
+}
+
+colMeans(covg10k)
+
+```
+
+Notice here how all confidence intervals perform better. The Wald CI still has below-nominal coverage but it is much closer than before. The exact method is known for being conservative and has slightly higher-than nominal coverage. The plus 4 method gets the closest to 95% coverage.
+
+## n = 20000
+
+This wasn't included in what we went over in-person but I wanted to highlight how the performance improves as the extexted number of successes/failures increase to be at least 5 each.
+
+```{r}
+niter = 10000
+samp_props20k = data.frame(phat =rep(NA, niter))
+for(i in 1:niter){
+  samp = sample(pa_cf$CF, size = 20000, replace = F)
+  samp_props20k[i,1] = mean(samp)
+}
+
+
+```
+
+```{r}
+
+
+# check n * p and n * (1-p) to see if they're at least 5
+p_true * 20000 ; (1 - p_true) * 20000
+# n * p is big enough now!
+
+# plot with normal distribution 
+samp_props20k %>%
+  ggplot( aes(x = phat)) + 
+  geom_histogram(binwidth = 1/20000, aes(y = ..density..),  color = "black") + 
+  stat_function(fun = dnorm, args = list(mean = p_true, sd = sqrt(p_true * (1 - p_true) / 20000)), 
+                color = "red", size = 1) + 
+  theme_bw() +
+  labs(x = "Sample Proportion (phat)", y = "Density")+
+  xlim(min(samp_props20k$phat)-.0001,max(samp_props20k$phat))
+
+covg20k = data.frame(Wald = rep(NA,niter), P4 = rep(NA,niter), Exact = rep(NA,niter))
+
+
+for(i in 1:niter){
+  phat = samp_props20k$phat[i]
+  x = phat * 20000
+  wald = binom.confint(x = x, n = 20000, methods = "asymptotic")
+  p4 = binom.confint(x = x+2, n = 20004, methods = "asymptotic")
+  exact= binom.confint(x = x, n = 20000, methods = "exact")
+  
+  covg20k[i,] = data.frame(
+    Wald = wald$lower<=p_true & wald$upper >= p_true,
+    P4 = p4$lower<=p_true & p4$upper >= p_true,
+    Exact = exact$lower<=p_true & exact$upper >= p_true
+  )
+}
+
+colMeans(covg20k)
+```
